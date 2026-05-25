@@ -1,0 +1,89 @@
+package com.example.demo.hospitals.controller;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.example.demo.hospitals.dto.HospitalCapacityDTO;
+import com.example.demo.hospitals.model.Hospital;
+import com.example.demo.hospitals.model.HospitalStatus;
+import com.example.demo.hospitals.service.HospitalService;
+
+// TODO: add @PreAuthorize role annotations once Spring Security is configured
+
+@RestController
+@RequestMapping("/api/hospitals")
+public class HospitalController {
+
+    private final HospitalService hospitalService;
+
+    public HospitalController(HospitalService hospitalService) {
+        this.hospitalService = hospitalService;
+    }
+
+    // GET -- /api/hospitals?page=0&size=10&status=OPERATIONAL
+    @GetMapping
+    public ResponseEntity<Page<Hospital>> getAllHospitals(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) HospitalStatus status) {
+        size = Math.min(size, 100);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+
+        Page<Hospital> result;
+        if (status != null) {
+            result = hospitalService.getByStatus(status, pageable);
+        } else {
+            result = hospitalService.getAllHospitals(pageable);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    // GET -- /api/hospitals/{id}
+    @GetMapping("/{id}")
+    public ResponseEntity<Hospital> getById(@PathVariable String id) {
+        return ResponseEntity.ok(hospitalService.getById(id));
+    }
+
+    // GET -- /api/hospitals/{id}/capacity
+    @GetMapping("/{id}/capacity")
+    public ResponseEntity<HospitalCapacityDTO> getCapacity(@PathVariable String id) {
+        return ResponseEntity.ok(hospitalService.getCapacity(id));
+    }
+
+    // GET -- /api/hospitals/status/{status}?page=0&size=10
+    @GetMapping("/status/{status}")
+    public ResponseEntity<Page<Hospital>> getByStatus(@PathVariable HospitalStatus status, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        size = Math.min(size, 100);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
+        
+        return ResponseEntity.ok(hospitalService.getByStatus(status, pageable));
+    }
+
+    // POST -- /api/hospitals
+    @PostMapping
+    public ResponseEntity<Hospital> create(@RequestBody Hospital hospital) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(hospitalService.saveNew(hospital));
+    }
+
+    // PUT -- /api/hospitals/{id}
+    @PutMapping("/{id}")
+    public ResponseEntity<Hospital> update(@RequestBody Hospital hospital, @PathVariable String id) {
+        return ResponseEntity.ok(hospitalService.update(hospital, id));
+    }
+
+    // DELETE -- /api/hospitals/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable String id) {
+        hospitalService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // POST -- /api/hospitals/{hospitalId}/assign/{incidentId}
+    @PostMapping("/{hospitalId}/assign/{incidentId}")
+    public ResponseEntity<String> assign(@PathVariable String hospitalId, @PathVariable String incidentId) {
+        return ResponseEntity.ok(hospitalService.assign(hospitalId, incidentId));
+    }
+}
