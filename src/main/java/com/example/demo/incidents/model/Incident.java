@@ -1,10 +1,12 @@
 package com.example.demo.incidents.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import lombok.Data;
 
@@ -12,4 +14,51 @@ import lombok.Data;
 @Document(collection = "incidents")
 public class Incident {
 
+    @Id
+    private String id;
+
+    @Field(name = "title")
+    private String title;
+
+    @Field(name = "description")
+    private String description;
+
+    @Field(name = "type")
+    private IncidentType type;
+
+    @Field(name = "status")
+    private IncidentStatus status;
+
+    @Field(name = "severity")
+    private SeverityLevel severity;
+
+    @Field(name = "location")
+    private String location;
+
+    @Field(name = "latitude")
+    private Double latitude;
+
+    @Field(name = "longitude")
+    private Double longitude;
+
+    @Field(name = "reportedBy")
+    private String reportedBy;       // TODO: set from JWT once security is configured
+
+    @Field(name = "assignedDispatcher")
+    private String assignedDispatcher; // TODO: set from JWT once security is configured
+
+    @Field(name = "assignedHospitalId")
+    private String assignedHospitalId; // set when hospital.assign() is called
+
+    @Field(name = "assignments")
+    private List<Assignment> assignments = new ArrayList<>();
+
+    @Field(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Field(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
+    @Field(name = "resolvedAt")
+    private LocalDateTime resolvedAt;
 }
