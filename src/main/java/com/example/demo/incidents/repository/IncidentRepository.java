@@ -6,9 +6,10 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 import com.example.demo.incidents.model.Incident;
 import com.example.demo.incidents.model.IncidentStatus;
+import com.example.demo.incidents.model.IncidentType;
 
 public interface IncidentRepository extends MongoRepository<Incident, String> {
     Page<Incident> findAll(Pageable pageable);
     Page<Incident> findByStatus(IncidentStatus status, Pageable pageable);
-    Page<Incident> findByType(String type, Pageable pageable);
+    Page<Incident> findByType(IncidentType type, Pageable pageable);
 }

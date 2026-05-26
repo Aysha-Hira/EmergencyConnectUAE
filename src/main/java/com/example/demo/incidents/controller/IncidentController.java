@@ -16,6 +16,8 @@ import com.example.demo.incidents.model.Incident;
 import com.example.demo.incidents.model.IncidentStatus;
 import com.example.demo.incidents.service.IncidentService;
 
+import jakarta.validation.Valid;
+
 // TODO: add @PreAuthorize role annotations once Spring Security is configured
 
 @RestController
@@ -30,10 +32,7 @@ public class IncidentController {
 
     // GET /api/incidents?page=0&size=10&status=OPEN
     @GetMapping
-    public ResponseEntity<Page<Incident>> getAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) IncidentStatus status) {
+    public ResponseEntity<Page<Incident>> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) IncidentStatus status) {
 
         size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -56,22 +55,20 @@ public class IncidentController {
 
     // POST /api/incidents
     @PostMapping
-    public ResponseEntity<Incident> create(@RequestBody Incident incident) {
+    public ResponseEntity<Incident> create(@Valid @RequestBody Incident incident) {
         return ResponseEntity.status(HttpStatus.CREATED).body(incidentService.create(incident));
     }
 
     // PUT /api/incidents/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Incident> update(@RequestBody Incident incident, @PathVariable String id) {
+    public ResponseEntity<Incident> update(@Valid @RequestBody Incident incident, @PathVariable String id) {
         return ResponseEntity.ok(incidentService.update(incident, id));
     }
 
     // PATCH /api/incidents/{id}/status
     // Body: { "status": "IN_PROGRESS" }
     @PatchMapping("/{id}/status")
-    public ResponseEntity<Incident> updateStatus(
-            @PathVariable String id,
-            @RequestParam IncidentStatus status) {
+    public ResponseEntity<Incident> updateStatus(@PathVariable String id, @RequestParam IncidentStatus status) {
         return ResponseEntity.ok(incidentService.updateStatus(id, status));
     }
 
@@ -82,7 +79,7 @@ public class IncidentController {
         return ResponseEntity.noContent().build();
     }
 
-    // --- Assignment endpoints nested under incidents ---
+    // --- Assignment endpoints ---
 
     // GET /api/incidents/{id}/assignments
     @GetMapping("/{id}/assignments")
@@ -92,17 +89,13 @@ public class IncidentController {
 
     // POST /api/incidents/{id}/assignments
     @PostMapping("/{id}/assignments")
-    public ResponseEntity<Assignment> addAssignment(
-            @PathVariable String id,
-            @RequestBody AssignmentRequestDTO request) {
+    public ResponseEntity<Assignment> addAssignment(@PathVariable String id, @RequestBody AssignmentRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(incidentService.addAssignment(id, request));
     }
 
     // DELETE /api/incidents/{incidentId}/assignments/{assignmentId}
     @DeleteMapping("/{incidentId}/assignments/{assignmentId}")
-    public ResponseEntity<Assignment> cancelAssignment(
-            @PathVariable String incidentId,
-            @PathVariable String assignmentId) {
+    public ResponseEntity<Assignment> cancelAssignment(@PathVariable String incidentId, @PathVariable String assignmentId) {
         return ResponseEntity.ok(incidentService.cancelAssignment(incidentId, assignmentId));
     }
 }

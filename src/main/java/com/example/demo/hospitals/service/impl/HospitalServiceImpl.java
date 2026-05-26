@@ -1,11 +1,13 @@
 package com.example.demo.hospitals.service.impl;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-// import org.redisson.api.RLock;
-// import org.redisson.api.RedissonClient;
-// import org.springframework.data.redis.core.RedisTemplate;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,16 +29,16 @@ import com.example.demo.exceptions.ResourceNotFoundException;
 public class HospitalServiceImpl implements HospitalService{
 	private final IncidentRepository incidentRepo;
 	private final HospitalRepository hospitalRepo;
-    // private final RedisTemplate<String, Object> redisTemplate;
-    // private final RedissonClient redissonClient;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedissonClient redissonClient;
 	
-	public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo /*, RedisTemplate<String, Object> redisTemplate,
-            RedissonClient redissonClient*/) {
+	public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo, RedisTemplate<String, Object> redisTemplate,
+            RedissonClient redissonClient) {
 		this.incidentRepo = incidentRepo;
 		this.hospitalRepo = hospitalRepo;
 		
-		// this.redisTemplate = redisTemplate;
-        // this.redissonClient = redissonClient;
+		this.redisTemplate = redisTemplate;
+        this.redissonClient = redissonClient;
 	}
 	
 	@Override
@@ -80,7 +82,7 @@ public class HospitalServiceImpl implements HospitalService{
 		
 		existing.setLastUpdated(LocalDateTime.now());
 		
-		// redisTemplate.delete("cache:hospital:capacity:" + id);
+		redisTemplate.delete("cache:hospital:capacity:" + id);
 		
 		return hospitalRepo.save(existing);
 	}
@@ -90,19 +92,19 @@ public class HospitalServiceImpl implements HospitalService{
 		if(!hospitalRepo.existsById(id)) throw new ResourceNotFoundException("Hospital", "hospitalId", id);
 		
 		hospitalRepo.deleteById(id);
-		// redisTemplate.delete("cache:hospital:capacity:" + id);
+		redisTemplate.delete("cache:hospital:capacity:" + id);
 		
 	}
 	
 	@Override
 	public HospitalCapacityDTO getCapacity(String id) {
-		//String cacheKey = "cache:hospital:capacity:" + id;
+		String cacheKey = "cache:hospital:capacity:" + id;
 
-        // // Check Redis cache first
-        // HospitalCapacityDTO cached = (HospitalCapacityDTO) redisTemplate.opsForValue().get(cacheKey);
-        // if (cached != null) return cached;
+        // Check Redis cache first
+        HospitalCapacityDTO cached = (HospitalCapacityDTO) redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) return cached;
 
-        // // Cache miss — hit MongoDB
+        // Cache miss — hit MongoDB
         Hospital hospital = getById(id);
 
         HospitalCapacityDTO dto = new HospitalCapacityDTO(
@@ -116,8 +118,8 @@ public class HospitalServiceImpl implements HospitalService{
                 hospital.getStatus()
         );
 
-        // // Cache for 60 seconds — short TTL because capacity changes frequently
-        // redisTemplate.opsForValue().set(cacheKey, dto, Duration.ofSeconds(60));
+        // Cache for 60 seconds — short TTL because capacity changes frequently
+        redisTemplate.opsForValue().set(cacheKey, dto, Duration.ofSeconds(60));
 
         return dto;
 	}
@@ -127,17 +129,17 @@ public class HospitalServiceImpl implements HospitalService{
 		// TODO: once Incident model has fields (hospitalId, status etc), update the incident here too
         // e.g. incident.setHospitalId(hospitalId); incidentRepo.save(incident);
 
-        // String lockKey = "lock:hospital:assign:" + hospitalId;
-        // RLock lock = redissonClient.getLock(lockKey);
+        String lockKey = "lock:hospital:assign:" + hospitalId;
+        RLock lock = redissonClient.getLock(lockKey);
 
         try {
-            // // Try to acquire lock — wait up to 5s, hold for max 10s
-            // boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
-            // if (!acquired) {
-            //     throw new RuntimeException("Could not acquire lock for hospital " + hospitalId + " — try again");
-            // }
+            // Try to acquire lock — wait up to 5s, hold for max 10s
+            boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+            if (!acquired) {
+                throw new RuntimeException("Could not acquire lock for hospital " + hospitalId + " — try again");
+            }
 
-           //  // Re-fetch inside lock to get latest state (don't trust pre-lock data)
+            // Re-fetch inside lock to get latest state (don't trust pre-lock data)
             Hospital hospital = getById(hospitalId);
 
             if (hospital.getAvailableBeds() == null || hospital.getAvailableBeds() <= 0) {
@@ -159,24 +161,24 @@ public class HospitalServiceImpl implements HospitalService{
             hospital.setLastUpdated(LocalDateTime.now());
             hospitalRepo.save(hospital);
 
-            // // Invalidate capacity cache since it changed
-            // redisTemplate.delete("cache:hospital:capacity:" + hospitalId);
+            // Invalidate capacity cache since it changed
+            redisTemplate.delete("cache:hospital:capacity:" + hospitalId);
 
             // TODO: embed assignment into incident document once Incident model is ready
             // TODO: save an AuditLog entry here once AuditLog model is ready
 
             return "Hospital " + hospitalId + " successfully assigned to incident " + incidentId;
 
-        } //catch (InterruptedException e) {
-          //  Thread.currentThread().interrupt();
-          //  throw new RuntimeException("Lock interrupted for hospital assignment");
-        //}
+        } catch (InterruptedException e) {
+           Thread.currentThread().interrupt();
+           throw new RuntimeException("Lock interrupted for hospital assignment");
+        }
 		finally {
-            // // Always release lock
-            // if (lock.isHeldByCurrentThread()) {
-            //     lock.unlock();
+            // Always release lock
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
              }
-        //}
+        }
     }
 	
 	 @Override

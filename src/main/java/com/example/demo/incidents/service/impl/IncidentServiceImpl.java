@@ -17,26 +17,29 @@ import com.example.demo.incidents.model.IncidentStatus;
 import com.example.demo.incidents.repository.IncidentRepository;
 import com.example.demo.incidents.service.IncidentService;
 
-// import org.redisson.api.RLock;
-// import org.redisson.api.RedissonClient;
-// import java.util.concurrent.TimeUnit;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepo;
-    // private final RedissonClient redissonClient;
+    private final RedissonClient redissonClient;
 
-    public IncidentServiceImpl(IncidentRepository incidentRepo /*, RedissonClient redissonClient */) {
+    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient) {
         this.incidentRepo = incidentRepo;
-        // this.redissonClient = redissonClient;
+        this.redissonClient = redissonClient;
     }
 
     @Override
     public Incident create(Incident incident) {
-        incident.setStatus(IncidentStatus.OPEN); // always starts OPEN
-        incident.setCreatedAt(LocalDateTime.now());
-        incident.setUpdatedAt(LocalDateTime.now());
+        incident.setStatus(IncidentStatus.OPEN);
+        
+        LocalDateTime now = LocalDateTime.now();
+        incident.setCreatedAt(now);
+        incident.setUpdatedAt(now);
+        
         // TODO: set reportedBy from JWT principal once security is configured
         return incidentRepo.save(incident);
     }
@@ -78,9 +81,10 @@ public class IncidentServiceImpl implements IncidentService {
     public Incident updateStatus(String id, IncidentStatus newStatus) {
         Incident existing = getById(id);
 
-        // Enforce valid status transitions
+        // Enforce valid status transitions only
         // OPEN -> IN_PROGRESS -> RESOLVED or CANCELLED
-        // CANCELLED is terminal, RESOLVED is terminal
+        
+        // can't change after resolved or cancelled
         IncidentStatus current = existing.getStatus();
         if (current == IncidentStatus.RESOLVED || current == IncidentStatus.CANCELLED) {
             throw new RuntimeException("Cannot change status of a " + current + " incident");
@@ -106,15 +110,12 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     public Assignment addAssignment(String incidentId, AssignmentRequestDTO request) {
-        // TODO: uncomment Redis lock below when Redis is re-enabled
-        // This is critical — without a lock two dispatchers could assign
-        // the same unit to two different incidents simultaneously
-        //
-        // String lockKey = "lock:unit:assign:" + request.getUnitId();
-        // RLock lock = redissonClient.getLock(lockKey);
-        // try {
-        //     boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
-        //     if (!acquired) throw new RuntimeException("Could not acquire lock for unit " + request.getUnitId());
+        // Tprevent two dispatchers being assigned the same unit to two different incidents at the same time
+        String lockKey = "lock:unit:assign:" + request.getUnitId();
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+            if (!acquired) throw new RuntimeException("Could not acquire lock for unit " + request.getUnitId());
 
         Incident incident = getById(incidentId);
 
@@ -153,15 +154,14 @@ public class IncidentServiceImpl implements IncidentService {
 
         // TODO: add AuditLog entry here once AuditLog is ready
         // TODO: update unit status to DISPATCHED in unit collection once Unit model is ready
-
-        // } catch (InterruptedException e) {
-        //     Thread.currentThread().interrupt();
-        //     throw new RuntimeException("Lock interrupted during unit assignment");
-        // } finally {
-        //     if (lock.isHeldByCurrentThread()) lock.unlock();
-        // }
-
+        
         return assignment;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Lock interrupted during unit assignment");
+        } finally {
+            if (lock.isHeldByCurrentThread()) lock.unlock();
+        }
     }
 
     @Override

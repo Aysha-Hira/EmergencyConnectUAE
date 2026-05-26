@@ -8,6 +8,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import jakarta.validation.constraints.*;
+
 import lombok.Data;
 
 @Data
@@ -18,21 +20,26 @@ public class Incident {
     private String id;
 
     @Field(name = "title")
+    @NotBlank(message = "Title is required")
     private String title;
 
     @Field(name = "description")
+    @NotBlank(message = "Description is required")
     private String description;
 
     @Field(name = "type")
+    @NotNull(message = "Type is required")
     private IncidentType type;
 
     @Field(name = "status")
     private IncidentStatus status;
 
     @Field(name = "severity")
+    @NotNull(message = "Severity is required")
     private SeverityLevel severity;
 
     @Field(name = "location")
+    @NotBlank(message = "Location is required")
     private String location;
 
     @Field(name = "latitude")

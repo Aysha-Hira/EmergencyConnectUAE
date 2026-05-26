@@ -13,6 +13,8 @@ import com.example.demo.hospitals.model.Hospital;
 import com.example.demo.hospitals.model.HospitalStatus;
 import com.example.demo.hospitals.service.HospitalService;
 
+import jakarta.validation.Valid;
+
 // TODO: add @PreAuthorize role annotations once Spring Security is configured
 
 @RestController
@@ -64,13 +66,13 @@ public class HospitalController {
 
     // POST -- /api/hospitals
     @PostMapping
-    public ResponseEntity<Hospital> create(@RequestBody Hospital hospital) {
+    public ResponseEntity<Hospital> create(@Valid @RequestBody Hospital hospital) {
         return ResponseEntity.status(HttpStatus.CREATED).body(hospitalService.saveNew(hospital));
     }
 
     // PUT -- /api/hospitals/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Hospital> update(@RequestBody Hospital hospital, @PathVariable String id) {
+    public ResponseEntity<Hospital> update(@Valid @RequestBody Hospital hospital, @PathVariable String id) {
         return ResponseEntity.ok(hospitalService.update(hospital, id));
     }
 
