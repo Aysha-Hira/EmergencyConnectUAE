@@ -138,6 +138,12 @@
 			<artifactId>redisson-spring-boot-starter</artifactId>
 			<version>3.27.2</version>
 		</dependency>
+		
+		<!-- Redisson (Session Storage) -->
+		<dependency>
+		    <groupId>org.springframework.session</groupId>
+		    <artifactId>spring-session-data-redis</artifactId>
+		</dependency>
 
 		<!-- Swagger -->
 		<dependency>
