@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.example.demo.exceptions.ResourceNotFoundException;
 import com.example.demo.users.dto.AuthResponseDTO;
 import com.example.demo.users.dto.LoginRequestDTO;
 import com.example.demo.users.dto.RegisterRequestDTO;
@@ -75,8 +74,7 @@ public class AuthServiceImpl implements AuthService {
                 user.getUsername(),
                 user.getRole().name(),
                 session.getId(),
-                "Login successful"
-        );
+                "Login successful");
     }
 
     @Override
