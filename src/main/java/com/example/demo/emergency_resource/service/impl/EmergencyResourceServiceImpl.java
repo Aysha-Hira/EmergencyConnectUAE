@@ -83,26 +83,12 @@ public class EmergencyResourceServiceImpl implements EmergencyResourceService {
         }
     }
 
-    // Lock here
-    // @Override
-    // public EmergencyResource updateResource(String resourceId, ResourceRequestDTO
-    // resourceDTO) {
-    // EmergencyResource existingResource =
-    // emergencyResourceRepository.findById(resourceId)
-    // .orElseThrow(() -> new RuntimeException("Resource not found"));
-    // existingResource.setName(resourceDTO.getName());
-    // existingResource.setAvailableQuantity(resourceDTO.getAvailableQuantity());
-    // existingResource.setTotalQuantity(resourceDTO.getTotalQuantity());
-    // existingResource
-    // .setStatus(getResourceStatus(resourceDTO.getAvailableQuantity(),
-    // resourceDTO.getTotalQuantity()));
-    // existingResource.setHospitalId(resourceDTO.getHospitalId());
-
-    // return emergencyResourceRepository.save(existingResource);
-    // }
-
     @Override
-    @CacheEvict(value = "resources", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "resources", allEntries = true),
+            @CacheEvict(value = "availableResources", allEntries = true),
+            @CacheEvict(value = "availableResourcesPerHospital", allEntries = true)
+    })
     public EmergencyResource updateResource(String resourceId, ResourceRequestDTO dto) {
         String lockKey = "lock:resource:update:" + resourceId;
         RLock lock = redissonClient.getLock(lockKey);
@@ -133,31 +119,12 @@ public class EmergencyResourceServiceImpl implements EmergencyResourceService {
         }
     }
 
-    //
-    // @Override
-    // public EmergencyResource updateResourceStatus(String resourceId, String
-    // status) {
-    // EmergencyResource resource = emergencyResourceRepository.findById(resourceId)
-    // .orElseThrow(() -> new RuntimeException("Resource not found"));
-    // switch (status.toLowerCase()) {
-    // case "available":
-    // resource.setStatus(ResourceStatus.AVAILABLE);
-    // break;
-    // case "low":
-    // resource.setStatus(ResourceStatus.LOW);
-    // break;
-    // case "depleted":
-    // resource.setStatus(ResourceStatus.DEPLETED);
-    // break;
-    // default:
-    // throw new IllegalArgumentException("Invalid status: " + status);
-    // }
-
-    // return emergencyResourceRepository.save(resource);
-    // }
-
     @Override
-    @CacheEvict(value = "resources", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "resources", allEntries = true),
+            @CacheEvict(value = "availableResources", allEntries = true),
+            @CacheEvict(value = "availableResourcesPerHospital", allEntries = true)
+    })
     public void deleteResource(String resourceId) {
         emergencyResourceRepository.deleteById(resourceId);
     }

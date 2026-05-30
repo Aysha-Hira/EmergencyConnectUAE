@@ -16,4 +16,8 @@ public interface EmergencyUnitRepository extends MongoRepository<EmergencyUnit, 
 
     Optional<EmergencyUnit> findByUnitName(String name);
 
+    Optional<EmergencyUnit> findByResponderID(String responderId);
+
+    boolean existsByUnitName(String unitName);
+
 }

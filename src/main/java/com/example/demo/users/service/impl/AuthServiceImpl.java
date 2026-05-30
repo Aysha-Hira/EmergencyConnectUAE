@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.config.JwtUtil;
 import com.example.demo.users.dto.AuthResponseDTO;
 import com.example.demo.users.dto.LoginRequestDTO;
 import com.example.demo.users.dto.RegisterRequestDTO;
@@ -18,10 +19,12 @@ import jakarta.servlet.http.HttpSession;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepo;
+    private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthServiceImpl(UserRepository userRepo) {
+    public AuthServiceImpl(UserRepository userRepo, JwtUtil jwtUtil) {
         this.userRepo = userRepo;
+        this.jwtUtil = jwtUtil;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -60,6 +63,9 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Account is disabled");
         }
 
+         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
+
+
         // Store session data in Redis — Spring Session handles this automatically
         // because we added @EnableRedisHttpSession to SecurityConfig
         session.setAttribute("userId", user.getId());
@@ -73,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
                 user.getId(),
                 user.getUsername(),
                 user.getRole().name(),
-                session.getId(),
+                token,
                 "Login successful");
     }
 

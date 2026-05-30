@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.emergency_unit.dto.UnitRequestDTO;
 import com.example.demo.emergency_unit.model.EmergencyUnit;
 import com.example.demo.emergency_unit.model.UnitStatus;
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
@@ -52,6 +53,30 @@ public class EmergencyUnitServiceImpl implements EmergencyUnitService {
         EmergencyUnit emergencyUnit = emergencyUnitRepository.findByUnitName(name)
                 .orElseThrow(() -> new ResourceNotFoundException("Unit", "UnitName", name));
         return emergencyUnit.getId();
+    }
+
+    // @Override
+    public String getIdByResponderId(String responderId) {
+        EmergencyUnit emergencyUnit = emergencyUnitRepository.findByResponderID(responderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Unit", "ResponderId", responderId));
+        return emergencyUnit.getId();
+    }
+
+    @Override
+    public EmergencyUnit addNewUnit(UnitRequestDTO unitDTO) {
+        if (emergencyUnitRepository.existsByUnitName(unitDTO.getUnitName())) {
+            throw new IllegalArgumentException("Unit name already exists: " + unitDTO.getUnitName());
+        }
+        EmergencyUnit newUnit = new EmergencyUnit();
+        newUnit.setUnitName(unitDTO.getUnitName());
+        newUnit.setUnitType(unitDTO.getUnitType());
+        newUnit.setStatus(UnitStatus.AVAILABLE);
+        newUnit.setLatitude(unitDTO.getLatitude());
+        newUnit.setLongitude(unitDTO.getLongitude());
+        newUnit.setResponderID(unitDTO.getResponderId());
+        newUnit.setResources(unitDTO.getResources());
+
+        return emergencyUnitRepository.save(newUnit);
     }
 
     @Override
