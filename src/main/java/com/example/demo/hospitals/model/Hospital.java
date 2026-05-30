@@ -34,7 +34,6 @@ public class Hospital {
 
 	@Field(name = "totalBeds")
 	@NotNull(message = "Total beds is required")
-	@Min(value = 1, message = "Must have at least 1 bed")
 	private Integer totalBeds;
 
 	@Field(name = "availableBeds")
