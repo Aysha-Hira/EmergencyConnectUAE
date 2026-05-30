@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -18,10 +17,9 @@ public class EmergencyResource {
     @Id
     private String id;
 
-    // private ResourceCategory resourceCategory;
-    @Field("resourceName")
+    @Field("name")
     @Indexed
-    private FacilityResource resourceName;
+    private ResourceType name;
 
     @Field("availableQuantity")
     private int availableQuantity; // lock here?
@@ -29,14 +27,10 @@ public class EmergencyResource {
     @Field("totalQuantity")
     private int totalQuantity;
 
-    @Field("quantityMeasure")
-    private String quantityMeasure; // e.g. "units", "liters", "beds"
+    private ResourceStatus status; // AVAILABLE, LOW, DEPLETED
 
     @Field("hospitalId")
-    private String hospitalId; // which hospital/unit holds this
-
-    @Field("isLow")
-    private boolean isLow; // flag for scarce resources
+    private String hospitalId; // which hospital holds this
 
     @CreatedDate
     @Field("createdDate")
@@ -45,7 +39,4 @@ public class EmergencyResource {
     @LastModifiedDate
     @Field("updatedDate")
     private LocalDateTime updatedDate;
-
-    @Version
-    private Long version; // for concurrency
 }

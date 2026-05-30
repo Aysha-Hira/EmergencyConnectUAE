@@ -26,83 +26,97 @@ import com.example.demo.hospitals.dto.HospitalCapacityDTO;
 import com.example.demo.exceptions.ResourceNotFoundException;
 
 @Service
-public class HospitalServiceImpl implements HospitalService{
-	private final IncidentRepository incidentRepo;
-	private final HospitalRepository hospitalRepo;
+public class HospitalServiceImpl implements HospitalService {
+    private final IncidentRepository incidentRepo;
+    private final HospitalRepository hospitalRepo;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedissonClient redissonClient;
-	
-	public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo, RedisTemplate<String, Object> redisTemplate,
+
+    public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo,
+            RedisTemplate<String, Object> redisTemplate,
             RedissonClient redissonClient) {
-		this.incidentRepo = incidentRepo;
-		this.hospitalRepo = hospitalRepo;
-		
-		this.redisTemplate = redisTemplate;
+        this.incidentRepo = incidentRepo;
+        this.hospitalRepo = hospitalRepo;
+
+        this.redisTemplate = redisTemplate;
         this.redissonClient = redissonClient;
-	}
-	
-	@Override
+    }
+
+    @Override
     public Page<Hospital> getAllHospitals(Pageable pageable) {
         return hospitalRepo.findAll(pageable);
     }
 
-	@Override
-	public Hospital saveNew(Hospital h) {
-		h.setLastUpdated(LocalDateTime.now());
-		return hospitalRepo.save(h);
-	}
+    @Override
+    public Hospital saveNew(Hospital h) {
+        h.setLastUpdated(LocalDateTime.now());
+        return hospitalRepo.save(h);
+    }
 
-	@Override
-	public Hospital getById(String id) {
-		return hospitalRepo.findById(id)
-				.orElseThrow(() -> new ResourceNotFoundException("Hospital", "hospitalId", id));
-	}
+    @Override
+    public Hospital getById(String id) {
+        return hospitalRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Hospital", "hospitalId", id));
+    }
 
-	@Override
-	public Hospital update(Hospital h, String id) {
-		Hospital existing = getById(id);
-		
-		if(h.getName() != null) existing.setName(h.getName());
-		if(h.getAddress() != null) existing.setAddress(h.getAddress());
-		
-		if(h.getLatitude() != null) existing.setLatitude(h.getLatitude()); 
-		if(h.getLongitude() != null) existing.setLongitude(h.getLongitude()); 
-		
-		if(h.getTotalBeds() != null) existing.setTotalBeds(h.getTotalBeds()); 
-		if(h.getAvailableBeds() != null) existing.setAvailableBeds(h.getAvailableBeds()); 
-		
-		if(h.getIcuBeds() != null) existing.setIcuBeds(h.getIcuBeds());
-		if(h.getAvailableIcuBeds() != null) existing.setAvailableIcuBeds(h.getAvailableIcuBeds());
-		
-		if(h.getErOperational() != null) existing.setErOperational(h.getErOperational());
-		
-		if(h.getResourceIds() != null) existing.setResourceIds(h.getResourceIds());
-		
-		if(h.getStatus() != null) existing.setStatus(h.getStatus());
-		
-		existing.setLastUpdated(LocalDateTime.now());
-		
-		redisTemplate.delete("cache:hospital:capacity:" + id);
-		
-		return hospitalRepo.save(existing);
-	}
+    @Override
+    public Hospital update(Hospital h, String id) {
+        Hospital existing = getById(id);
 
-	@Override
-	public void delete(String id) {
-		if(!hospitalRepo.existsById(id)) throw new ResourceNotFoundException("Hospital", "hospitalId", id);
-		
-		hospitalRepo.deleteById(id);
-		redisTemplate.delete("cache:hospital:capacity:" + id);
-		
-	}
-	
-	@Override
-	public HospitalCapacityDTO getCapacity(String id) {
-		String cacheKey = "cache:hospital:capacity:" + id;
+        if (h.getName() != null)
+            existing.setName(h.getName());
+        if (h.getAddress() != null)
+            existing.setAddress(h.getAddress());
+
+        if (h.getLatitude() != null)
+            existing.setLatitude(h.getLatitude());
+        if (h.getLongitude() != null)
+            existing.setLongitude(h.getLongitude());
+
+        if (h.getTotalBeds() != null)
+            existing.setTotalBeds(h.getTotalBeds());
+        if (h.getAvailableBeds() != null)
+            existing.setAvailableBeds(h.getAvailableBeds());
+
+        if (h.getIcuBeds() != null)
+            existing.setIcuBeds(h.getIcuBeds());
+        if (h.getAvailableIcuBeds() != null)
+            existing.setAvailableIcuBeds(h.getAvailableIcuBeds());
+
+        if (h.getErOperational() != null)
+            existing.setErOperational(h.getErOperational());
+
+        if (h.getResourceIds() != null)
+            existing.setResourceIds(h.getResourceIds());
+
+        if (h.getStatus() != null)
+            existing.setStatus(h.getStatus());
+
+        existing.setLastUpdated(LocalDateTime.now());
+
+        redisTemplate.delete("cache:hospital:capacity:" + id);
+
+        return hospitalRepo.save(existing);
+    }
+
+    @Override
+    public void delete(String id) {
+        if (!hospitalRepo.existsById(id))
+            throw new ResourceNotFoundException("Hospital", "hospitalId", id);
+
+        hospitalRepo.deleteById(id);
+        redisTemplate.delete("cache:hospital:capacity:" + id);
+
+    }
+
+    @Override
+    public HospitalCapacityDTO getCapacity(String id) {
+        String cacheKey = "cache:hospital:capacity:" + id;
 
         // Check Redis cache first
         HospitalCapacityDTO cached = (HospitalCapacityDTO) redisTemplate.opsForValue().get(cacheKey);
-        if (cached != null) return cached;
+        if (cached != null)
+            return cached;
 
         // Cache miss — hit MongoDB
         Hospital hospital = getById(id);
@@ -115,18 +129,18 @@ public class HospitalServiceImpl implements HospitalService{
                 hospital.getIcuBeds(),
                 hospital.getAvailableIcuBeds(),
                 hospital.getErOperational(),
-                hospital.getStatus()
-        );
+                hospital.getStatus());
 
         // Cache for 60 seconds — short TTL because capacity changes frequently
         redisTemplate.opsForValue().set(cacheKey, dto, Duration.ofSeconds(60));
 
         return dto;
-	}
+    }
 
-	@Override
-	public String assign(String hospitalId, String incidentId) {
-		// TODO: once Incident model has fields (hospitalId, status etc), update the incident here too
+    @Override
+    public String assign(String hospitalId, String incidentId) {
+        // TODO: once Incident model has fields (hospitalId, status etc), update the
+        // incident here too
         // e.g. incident.setHospitalId(hospitalId); incidentRepo.save(incident);
 
         String lockKey = "lock:hospital:assign:" + hospitalId;
@@ -148,7 +162,8 @@ public class HospitalServiceImpl implements HospitalService{
 
             // TODO: validate incidentId exists once Incident model has fields
             // Incident incident = incidentRepo.findById(incidentId)
-            //     .orElseThrow(() -> new ResourceNotFoundException("Incident", "incidentId", incidentId));
+            // .orElseThrow(() -> new ResourceNotFoundException("Incident", "incidentId",
+            // incidentId));
 
             // Decrement available beds
             hospital.setAvailableBeds(hospital.getAvailableBeds() - 1);
@@ -170,20 +185,18 @@ public class HospitalServiceImpl implements HospitalService{
             return "Hospital " + hospitalId + " successfully assigned to incident " + incidentId;
 
         } catch (InterruptedException e) {
-           Thread.currentThread().interrupt();
-           throw new RuntimeException("Lock interrupted for hospital assignment");
-        }
-		finally {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Lock interrupted for hospital assignment");
+        } finally {
             // Always release lock
             if (lock.isHeldByCurrentThread()) {
                 lock.unlock();
-             }
+            }
         }
     }
-	
-	 @Override
-	    public Page<Hospital> getByStatus(HospitalStatus status, Pageable pageable) {
-	        return hospitalRepo.findByStatus(status, pageable);
-	    }
-}
 
+    @Override
+    public Page<Hospital> getByStatus(HospitalStatus status, Pageable pageable) {
+        return hospitalRepo.findByStatus(status, pageable);
+    }
+}

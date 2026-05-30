@@ -1,13 +1,165 @@
 package com.example.demo.emergency_resource.service.impl;
 
+import java.util.concurrent.TimeUnit;
+
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.emergency_resource.dto.ResourceRequestDTO;
+import com.example.demo.emergency_resource.model.EmergencyResource;
+import com.example.demo.emergency_resource.model.ResourceStatus;
+import com.example.demo.emergency_resource.repository.EmergencyResourceRepository;
 import com.example.demo.emergency_resource.service.EmergencyResourceService;
+import com.example.demo.exceptions.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class EmergencyResourceServiceImpl implements EmergencyResourceService {
+
+    private final EmergencyResourceRepository emergencyResourceRepository;
+    private final RedissonClient redissonClient;
+
+    @Override
+    @Cacheable(value = "resources", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<EmergencyResource> getAllResources(Pageable pageable) {
+        return emergencyResourceRepository.findAll(pageable);
+    }
+
+    @Override
+    @Cacheable(value = "availableResources", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<EmergencyResource> getAvailableResources(Pageable pageable) {
+        return emergencyResourceRepository.findByStatus(ResourceStatus.AVAILABLE, pageable);
+    }
+
+    @Override
+    @Cacheable(value = "availableResourcesPerHospital", key = "#hospitalId + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<EmergencyResource> getAvailableResourcesPerHospital(Pageable pageable, String hospitalId) {
+        return emergencyResourceRepository.findByStatusAndHospitalId(ResourceStatus.AVAILABLE, hospitalId, pageable);
+    }
+
+    @Override
+    @Caching(evict = {
+            @CacheEvict(value = "resources", allEntries = true),
+            @CacheEvict(value = "availableResources", allEntries = true),
+            @CacheEvict(value = "availableResourcesPerHospital", allEntries = true)
+    })
+    public EmergencyResource addResource(ResourceRequestDTO resourceDTO) {
+        EmergencyResource newResource = new EmergencyResource();
+        newResource.setName(resourceDTO.getName());
+        newResource.setAvailableQuantity(resourceDTO.getAvailableQuantity());
+        newResource.setTotalQuantity(resourceDTO.getTotalQuantity());
+        newResource.setHospitalId(resourceDTO.getHospitalId());
+
+        // TODO: New Exception needed here
+        if (resourceDTO.getAvailableQuantity() > resourceDTO.getTotalQuantity())
+            throw new IllegalArgumentException("Available quantity cannot exceed total quantity");
+
+        if (resourceDTO.getAvailableQuantity() < 0 || resourceDTO.getTotalQuantity() < 0) {
+            throw new IllegalArgumentException("Quantities cannot be negative");
+        }
+
+        newResource.setStatus(getResourceStatus(resourceDTO.getAvailableQuantity(), resourceDTO.getTotalQuantity()));
+
+        EmergencyResource saved = emergencyResourceRepository.save(newResource);
+        return saved;
+
+    }
+
+    private ResourceStatus getResourceStatus(int available, int total) {
+        if (available == 0) {
+            return ResourceStatus.DEPLETED;
+        } else if (available < total * 0.3) {
+            return ResourceStatus.LOW;
+        } else {
+            return ResourceStatus.AVAILABLE;
+        }
+    }
+
+    // Lock here
+    // @Override
+    // public EmergencyResource updateResource(String resourceId, ResourceRequestDTO
+    // resourceDTO) {
+    // EmergencyResource existingResource =
+    // emergencyResourceRepository.findById(resourceId)
+    // .orElseThrow(() -> new RuntimeException("Resource not found"));
+    // existingResource.setName(resourceDTO.getName());
+    // existingResource.setAvailableQuantity(resourceDTO.getAvailableQuantity());
+    // existingResource.setTotalQuantity(resourceDTO.getTotalQuantity());
+    // existingResource
+    // .setStatus(getResourceStatus(resourceDTO.getAvailableQuantity(),
+    // resourceDTO.getTotalQuantity()));
+    // existingResource.setHospitalId(resourceDTO.getHospitalId());
+
+    // return emergencyResourceRepository.save(existingResource);
+    // }
+
+    @Override
+    @CacheEvict(value = "resources", allEntries = true)
+    public EmergencyResource updateResource(String resourceId, ResourceRequestDTO dto) {
+        String lockKey = "lock:resource:update:" + resourceId;
+        RLock lock = redissonClient.getLock(lockKey);
+
+        try {
+            boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+            if (!acquired) {
+                throw new RuntimeException("Resource is currently being updated, please try again");
+            }
+
+            EmergencyResource existing = emergencyResourceRepository.findById(resourceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Resource", "resourceId", resourceId));
+
+            existing.setName(dto.getName());
+            existing.setAvailableQuantity(dto.getAvailableQuantity());
+            existing.setTotalQuantity(dto.getTotalQuantity());
+            existing.setHospitalId(dto.getHospitalId());
+            existing.setStatus(getResourceStatus(dto.getAvailableQuantity(), dto.getTotalQuantity()));
+
+            return emergencyResourceRepository.save(existing);
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Lock interrupted during resource update");
+        } finally {
+            if (lock.isHeldByCurrentThread())
+                lock.unlock();
+        }
+    }
+
+    //
+    // @Override
+    // public EmergencyResource updateResourceStatus(String resourceId, String
+    // status) {
+    // EmergencyResource resource = emergencyResourceRepository.findById(resourceId)
+    // .orElseThrow(() -> new RuntimeException("Resource not found"));
+    // switch (status.toLowerCase()) {
+    // case "available":
+    // resource.setStatus(ResourceStatus.AVAILABLE);
+    // break;
+    // case "low":
+    // resource.setStatus(ResourceStatus.LOW);
+    // break;
+    // case "depleted":
+    // resource.setStatus(ResourceStatus.DEPLETED);
+    // break;
+    // default:
+    // throw new IllegalArgumentException("Invalid status: " + status);
+    // }
+
+    // return emergencyResourceRepository.save(resource);
+    // }
+
+    @Override
+    @CacheEvict(value = "resources", allEntries = true)
+    public void deleteResource(String resourceId) {
+        emergencyResourceRepository.deleteById(resourceId);
+    }
 
 }
