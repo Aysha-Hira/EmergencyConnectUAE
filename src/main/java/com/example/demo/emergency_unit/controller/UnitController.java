@@ -1,6 +1,5 @@
 package com.example.demo.emergency_unit.controller;
 
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -70,18 +69,21 @@ public class UnitController {
 
     @GetMapping("/name")
     @PreAuthorize("hasRole('DISPATCHER')")
+    @Operation(summary = "Get a unit by name")
     public ResponseEntity<EmergencyUnit> getUnitByName(@RequestParam String name) {
         return ResponseEntity.ok(emergencyUnitService.getUnitByName(name));
     }
 
     @GetMapping("/name/id")
     @PreAuthorize("hasRole('DISPATCHER')")
+    @Operation(summary = "Get a unit's ID by its name")
     public ResponseEntity<String> getUnitIdByName(@RequestParam String name) {
         return ResponseEntity.ok(emergencyUnitService.getIdByName(name));
     }
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('DISPATCHER')")
+    @Operation(summary = "Update the status of a unit")
     public ResponseEntity<EmergencyUnit> updateUnitStatus(@PathVariable String id,
             @RequestParam UnitStatus status) {
         return ResponseEntity.ok(emergencyUnitService.updateUnitStatus(id, status));
@@ -89,6 +91,7 @@ public class UnitController {
 
     @PostMapping("/add")
     @PreAuthorize("hasRole('DISPATCHER')")
+    @Operation(summary = "Register a new emergency unit")
     public ResponseEntity<EmergencyUnit> addNewUnit(@RequestBody UnitRequestDTO unitDTO) {
         return ResponseEntity.ok(emergencyUnitService.addNewUnit(unitDTO));
     }
