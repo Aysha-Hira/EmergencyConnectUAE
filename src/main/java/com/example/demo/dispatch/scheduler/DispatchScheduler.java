@@ -153,7 +153,7 @@ public class DispatchScheduler {
             }
             
             // Assign unit to incident
-            freshUnit.setStatus(UnitStatus.RESPONDING_TO_INCIDENT);
+            freshUnit.setStatus(UnitStatus.DISPATCHED);
             freshUnit.setCurrentIncidentId(incident.getId());
             unitRepository.save(freshUnit);
             
