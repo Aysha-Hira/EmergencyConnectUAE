@@ -1,8 +1,8 @@
-package com.example.demo.users.service;
+package com.example.demo.auth.service;
 
-import com.example.demo.users.dto.AuthResponseDTO;
-import com.example.demo.users.dto.LoginRequestDTO;
-import com.example.demo.users.dto.RegisterRequestDTO;
+import com.example.demo.auth.dto.AuthResponseDTO;
+import com.example.demo.auth.dto.LoginRequestDTO;
+import com.example.demo.auth.dto.RegisterRequestDTO;
 
 public interface AuthService {
     AuthResponseDTO register(RegisterRequestDTO request);

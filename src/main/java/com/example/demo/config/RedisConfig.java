@@ -50,6 +50,7 @@ public class RedisConfig {
         return mapper;
     }
 
+    @SuppressWarnings("deprecation")
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -63,23 +64,23 @@ public class RedisConfig {
     public RedissonClient redissonClient() {
         Config config = new Config();
         config.useSingleServer()
-            .setAddress("redis://" +
-                env.getProperty("spring.data.redis.host", "localhost") + ":" +
-                env.getProperty("spring.data.redis.port", "6379"));
+                .setAddress("redis://" +
+                        env.getProperty("spring.data.redis.host", "localhost") + ":" +
+                        env.getProperty("spring.data.redis.port", "6379"));
         return Redisson.create(config);
     }
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory factory) {
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-            .entryTtl(Duration.ofMinutes(5))
-            .serializeKeysWith(RedisSerializationContext.SerializationPair
-                .fromSerializer(new StringRedisSerializer()))
-            .serializeValuesWith(RedisSerializationContext.SerializationPair
-                .fromSerializer(new GenericJackson2JsonRedisSerializer(redisObjectMapper())));
+                .entryTtl(Duration.ofMinutes(5))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new GenericJackson2JsonRedisSerializer()));
 
         return RedisCacheManager.builder(factory)
-            .cacheDefaults(config)
-            .build();
+                .cacheDefaults(config)
+                .build();
     }
 }

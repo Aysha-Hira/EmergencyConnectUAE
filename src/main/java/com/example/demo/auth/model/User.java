@@ -1,4 +1,4 @@
-package com.example.demo.users.model;
+package com.example.demo.auth.model;
 
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;

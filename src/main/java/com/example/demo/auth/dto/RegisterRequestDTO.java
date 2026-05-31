@@ -1,6 +1,7 @@
-package com.example.demo.users.dto;
+package com.example.demo.auth.dto;
 
-import com.example.demo.users.model.UserRole;
+import com.example.demo.auth.model.UserRole;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
