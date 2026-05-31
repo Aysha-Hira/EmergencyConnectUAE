@@ -1,0 +1,176 @@
+package com.example.demo.users.controller;
+
+import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import com.example.demo.config.JwtUtil;
+import com.example.demo.users.dto.AuthResponseDTO;
+import com.example.demo.users.dto.MFASetupResponseDTO;
+import com.example.demo.users.dto.MFAVerifyRequestDTO;
+import com.example.demo.users.model.User;
+import com.example.demo.users.repository.UserRepository;
+import com.example.demo.users.service.MFAService;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
+
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequestMapping("/api/auth/mfa")
+@RequiredArgsConstructor
+public class MfaController {
+
+    private final MFAService mfaService;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
+
+    /**
+     * STEP 1: User enables MFA
+     * POST /api/auth/mfa/setup?userId=xxx
+     */
+    @PostMapping("/setup")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
+    public ResponseEntity<MFASetupResponseDTO> setupMfa(@RequestParam String userId) {
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.isMfaEnabled()) {
+            throw new RuntimeException("MFA is already enabled for this user");
+        }
+
+        // Generate new credentials
+        GoogleAuthenticatorKey key = mfaService.generateCredentials();
+        String secret = key.getKey();
+        
+        // Generate QR code URL
+        String qrUrl = mfaService.getQRCodeUrl(user.getEmail(), key);
+        
+        return ResponseEntity.ok(new MFASetupResponseDTO(
+            secret,
+            qrUrl,
+            "Scan this QR code with Google Authenticator, then call /verify-setup"
+        ));
+    }
+
+    /**
+     * STEP 2: Verify and enable MFA
+     * POST /api/auth/mfa/verify-setup?secret=xxx
+     */
+    @PostMapping("/verify-setup")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
+    public ResponseEntity<String> verifyAndEnableMfa(
+            @Valid @RequestBody MFAVerifyRequestDTO request,
+            @RequestParam String secret) {
+        
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.isMfaEnabled()) {
+            throw new RuntimeException("MFA is already enabled");
+        }
+
+        boolean isValid = mfaService.verifyCode(secret, request.getCode());
+        
+        if (!isValid) {
+            throw new RuntimeException("Invalid MFA code. Please try again.");
+        }
+
+        user.setMfaEnabled(true);
+        user.setMfaSecret(secret);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("MFA enabled successfully! Next login will require code.");
+    }
+
+    /**
+     * STEP 3: Verify MFA during login
+     * POST /api/auth/mfa/verify-login
+     */
+    @PostMapping("/verify-login")
+    public ResponseEntity<AuthResponseDTO> verifyLoginMfa(
+            @Valid @RequestBody MFAVerifyRequestDTO request,
+            HttpSession session) {
+        
+        String pendingUserId = (String) session.getAttribute("pendingMfaUserId");
+        
+        if (pendingUserId == null) {
+            throw new RuntimeException("No pending MFA login. Please login first.");
+        }
+
+        if (!pendingUserId.equals(request.getUserId())) {
+            throw new RuntimeException("User ID mismatch");
+        }
+
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.isMfaEnabled()) {
+            throw new RuntimeException("MFA is not enabled for this user");
+        }
+
+        boolean isValid = mfaService.verifyCode(user.getMfaSecret(), request.getCode());
+        
+        if (!isValid) {
+            throw new RuntimeException("Invalid MFA code. Please try again.");
+        }
+
+        // Complete login
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
+
+        session.removeAttribute("pendingMfaUserId");
+        session.removeAttribute("pendingMfaUsername");
+        
+        session.setAttribute("userId", user.getId());
+        session.setAttribute("username", user.getUsername());
+        session.setAttribute("role", user.getRole().name());
+
+        return ResponseEntity.ok(new AuthResponseDTO(
+            user.getId(),
+            user.getUsername(),
+            user.getRole().name(),
+            token,
+            "Login complete with MFA",
+            false
+        ));
+    }
+
+    /**
+     * Disable MFA for a user
+     * POST /api/auth/mfa/disable?userId=xxx
+     */
+    @PostMapping("/disable")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
+    public ResponseEntity<String> disableMfa(@RequestParam String userId) {
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setMfaEnabled(false);
+        user.setMfaSecret(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok("MFA disabled successfully");
+    }
+
+    /**
+     * Get MFA status
+     * GET /api/auth/mfa/status?userId=xxx
+     */
+    @GetMapping("/status")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN', 'RESPONDER')")
+    public ResponseEntity<Map<String, Object>> getMfaStatus(@RequestParam String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        return ResponseEntity.ok(Map.of(
+            "userId", user.getId(),
+            "username", user.getUsername(),
+            "mfaEnabled", user.isMfaEnabled()
+        ));
+    }
+}

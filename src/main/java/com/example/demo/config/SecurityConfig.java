@@ -35,6 +35,14 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives("default-src 'self'")))
                 .authorizeHttpRequests(auth -> auth
+                        // ========== MFA ENDPOINTS ADDED BELOW ==========
+
+                        .requestMatchers("/api/auth/mfa/verify-login").permitAll()
+                        .requestMatchers("/api/auth/mfa/setup", "/api/auth/mfa/verify-setup", "/api/auth/mfa/disable")
+                            .hasAnyRole("DISPATCHER", "HOSPITAL_ADMIN")
+                        .requestMatchers("/api/auth/mfa/status").authenticated()
+                        // ========== END OF MFA ADDITIONS ==========
+                        
                         .anyRequest().permitAll()
                         //TODO: uncomment after testing for jwt filter implementation !!
                 // .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()

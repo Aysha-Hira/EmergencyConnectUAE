@@ -12,6 +12,7 @@ import com.example.demo.users.dto.RegisterRequestDTO;
 import com.example.demo.users.model.User;
 import com.example.demo.users.repository.UserRepository;
 import com.example.demo.users.service.AuthService;
+import com.example.demo.users.service.MFAService;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -20,11 +21,13 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepo;
     private final JwtUtil jwtUtil;
+    private final MFAService mfaService;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthServiceImpl(UserRepository userRepo, JwtUtil jwtUtil) {
+    public AuthServiceImpl(UserRepository userRepo, JwtUtil jwtUtil, MFAService mfaService) {
         this.userRepo = userRepo;
         this.jwtUtil = jwtUtil;
+        this.mfaService = mfaService;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -40,9 +43,11 @@ public class AuthServiceImpl implements AuthService {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword())); // never store plaintext
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole());
         user.setCreatedAt(LocalDateTime.now());
+        user.setMfaEnabled(false);
+        user.setMfaSecret(null);
 
         userRepo.save(user);
 
@@ -63,17 +68,25 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Account is disabled");
         }
 
-         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
+        // ----- MFA CHECK -----
+        // If user has MFA enabled, don't return full token yet
+        if (user.isMfaEnabled()) {
+            // Store user ID in session temporarily for MFA verification
+            session.setAttribute("pendingMfaUserId", user.getId());
+            session.setAttribute("pendingMfaUsername", user.getUsername());
+            session.setMaxInactiveInterval(300); // 5 minutes to complete MFA
+            
+            return AuthResponseDTO.mfaRequired(user.getId(), 
+                "MFA required. Please verify with your authenticator app.");
+        }
+        // ----- END MFA CHECK -----
 
+        // No MFA enabled - complete login normally
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
 
-        // Store session data in Redis — Spring Session handles this automatically
-        // because we added @EnableRedisHttpSession to SecurityConfig
         session.setAttribute("userId", user.getId());
         session.setAttribute("username", user.getUsername());
         session.setAttribute("role", user.getRole().name());
-
-        // TODO: if user has MFA enabled, don't complete login here —
-        // return a pending state and require MFA verification first
 
         return new AuthResponseDTO(
                 user.getId(),
@@ -85,7 +98,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(HttpSession session) {
-        // Invalidating the session deletes it from Redis automatically
+        session.removeAttribute("pendingMfaUserId");
+        session.removeAttribute("pendingMfaUsername");
         session.invalidate();
     }
 }
