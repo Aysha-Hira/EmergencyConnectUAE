@@ -2,10 +2,16 @@ package com.example.demo.incidents.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -51,6 +57,7 @@ public class IncidentServiceImpl implements IncidentService {
     }
 
     @Override
+    @CacheEvict(value = "activeIncidents", allEntries = true)
     public Incident create(Incident incident) {
         incident.setStatus(IncidentStatus.OPEN);
 
@@ -72,16 +79,19 @@ public class IncidentServiceImpl implements IncidentService {
     }
 
     @Override
+    @Cacheable(value = "activeIncidents", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<Incident> getAll(Pageable pageable) {
         return incidentRepo.findAll(pageable);
     }
 
     @Override
+    @Cacheable(value = "activeIncidents", key = "'status-' + #status + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<Incident> getByStatus(IncidentStatus status, Pageable pageable) {
         return incidentRepo.findByStatus(status, pageable);
     }
 
     @Override
+    @CacheEvict(value = "activeIncidents", allEntries = true)
     public Incident update(Incident incident, String id) {
         Incident existing = getById(id);
 
@@ -110,6 +120,7 @@ public class IncidentServiceImpl implements IncidentService {
     }
 
     @Override
+    @CacheEvict(value = "activeIncidents", allEntries = true)
     public Incident updateStatus(String id, IncidentStatus newStatus) {
         Incident existing = getById(id);
 
@@ -137,6 +148,7 @@ public class IncidentServiceImpl implements IncidentService {
     }
 
     @Override
+    @CacheEvict(value = "activeIncidents", allEntries = true)
     public void delete(String id) {
         if (!incidentRepo.existsById(id))
             throw new ResourceNotFoundException("Incident", "incidentId", id);
@@ -241,5 +253,17 @@ public class IncidentServiceImpl implements IncidentService {
                 "Assignment " + assignmentId + " cancelled, unit " + assignment.getUnitId() + " returned to AVAILABLE");
 
         return assignment;
+    }
+    
+    @Override
+    @Cacheable(value = "dashboardSummary", key = "'summary'")
+    public Map<String, Object> getDashboardSummary() {
+        Map<String, Object> summary = new HashMap<>();
+        
+        summary.put("totalIncidents", incidentRepo.count());
+        summary.put("openIncidents", incidentRepo.findByStatus(IncidentStatus.OPEN, PageRequest.of(0, 1)).getTotalElements());
+        summary.put("inProgressIncidents", incidentRepo.findByStatus(IncidentStatus.IN_PROGRESS, PageRequest.of(0, 1)).getTotalElements());
+        summary.put("resolvedIncidents", incidentRepo.findByStatus(IncidentStatus.RESOLVED, PageRequest.of(0, 1)).getTotalElements());
+        return summary;
     }
 }

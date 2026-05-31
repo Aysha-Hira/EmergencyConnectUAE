@@ -9,6 +9,7 @@ import com.example.demo.incidents.model.Incident;
 import com.example.demo.incidents.model.IncidentStatus;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IncidentService {
 
@@ -23,6 +24,7 @@ public interface IncidentService {
     //Custom(for incidents)
     Incident updateStatus(String id, IncidentStatus newStatus);
     Page<Incident> getByStatus(IncidentStatus status, Pageable pageable);
+    Map<String, Object> getDashboardSummary();
 
     // Assignments (embedded in incidents)
     Assignment addAssignment(String incidentId, AssignmentRequestDTO request);

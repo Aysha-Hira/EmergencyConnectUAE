@@ -36,7 +36,6 @@ public class UnitController {
     @GetMapping
     @PreAuthorize("hasRole('DISPATCHER')")
     @Operation(summary = "Get all emergency units")
-    @Cacheable(value = "units", key = "'all'")
     public ResponseEntity<Page<EmergencyUnit>> getAllUnits(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) UnitStatus status) {
         size = Math.min(size, 100);
@@ -54,7 +53,6 @@ public class UnitController {
     @GetMapping("/available")
     @PreAuthorize("hasRole('DISPATCHER')")
     @Operation(summary = "Get all available units")
-    @Cacheable(value = "units", key = "'available'")
     public ResponseEntity<Page<EmergencyUnit>> getAvailableUnits(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         size = Math.min(size, 100);
@@ -66,28 +64,24 @@ public class UnitController {
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('DISPATCHER')")
     @Operation(summary = "Get a unit by ID")
-    @Cacheable(value = "units", key = "#id")
     public ResponseEntity<EmergencyUnit> getUnitById(@PathVariable String id) {
         return ResponseEntity.ok(emergencyUnitService.getUnitById(id));
     }
 
     @GetMapping("/name")
     @PreAuthorize("hasRole('DISPATCHER')")
-    @Cacheable(value = "units", key = "'unit:' + #name")
     public ResponseEntity<EmergencyUnit> getUnitByName(@RequestParam String name) {
         return ResponseEntity.ok(emergencyUnitService.getUnitByName(name));
     }
 
     @GetMapping("/name/id")
     @PreAuthorize("hasRole('DISPATCHER')")
-    @Cacheable(value = "units", key = "'unitId:' + #name")
     public ResponseEntity<String> getUnitIdByName(@RequestParam String name) {
         return ResponseEntity.ok(emergencyUnitService.getIdByName(name));
     }
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('DISPATCHER')")
-    @Operation(summary = "Update a unit's status")
     public ResponseEntity<EmergencyUnit> updateUnitStatus(@PathVariable String id,
             @RequestParam UnitStatus status) {
         return ResponseEntity.ok(emergencyUnitService.updateUnitStatus(id, status));
