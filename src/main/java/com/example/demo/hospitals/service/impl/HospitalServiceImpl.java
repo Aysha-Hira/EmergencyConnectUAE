@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
-
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -22,6 +22,7 @@ import com.example.demo.hospitals.repository.HospitalRepository;
 import com.example.demo.hospitals.model.Hospital;
 import com.example.demo.hospitals.model.HospitalStatus;
 import com.example.demo.hospitals.dto.HospitalCapacityDTO;
+import com.example.demo.audit.service.AuditService;
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
 import com.example.demo.exceptions.ResourceNotFoundException;
 
@@ -30,14 +31,17 @@ public class HospitalServiceImpl implements HospitalService {
     private final IncidentRepository incidentRepo;
     private final HospitalRepository hospitalRepo;
     private final EmergencyUnitRepository unitRepo;
+    private final AuditService auditService;
+    
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedissonClient redissonClient;
 
-    public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo, EmergencyUnitRepository unitRepo,
+    public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo, EmergencyUnitRepository unitRepo, AuditService auditService,
             RedisTemplate<String, Object> redisTemplate, RedissonClient redissonClient) {
         this.incidentRepo = incidentRepo;
         this.hospitalRepo = hospitalRepo;
         this.unitRepo = unitRepo;
+        this.auditService = auditService;
 
         this.redisTemplate = redisTemplate;
         this.redissonClient = redissonClient;
@@ -179,7 +183,8 @@ public class HospitalServiceImpl implements HospitalService {
             // Invalidate capacity cache since it changed
             redisTemplate.delete("cache:hospital:capacity:" + hospitalId);
 
-            // TODO: save an AuditLog entry here once AuditLog model is ready
+            String userId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            auditService.logAssignment(userId, userId, "DISPATCHER", "HOSPITAL", hospitalId, incidentId, "Hospital " + hospitalId + " assigned to incident " + incidentId);
 
             return "Hospital " + hospitalId + " successfully assigned to incident " + incidentId;
 

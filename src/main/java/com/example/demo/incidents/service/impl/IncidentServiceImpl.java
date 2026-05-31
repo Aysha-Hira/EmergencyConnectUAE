@@ -1,15 +1,18 @@
 package com.example.demo.incidents.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
+import com.example.demo.audit.service.AuditService;
 import com.example.demo.emergency_unit.model.UnitStatus;
 import com.example.demo.exceptions.ResourceNotFoundException;
 import com.example.demo.incidents.dto.AssignmentRequestDTO;
@@ -22,19 +25,22 @@ import com.example.demo.incidents.service.IncidentService;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepo;
     private final EmergencyUnitRepository unitRepo;
+    private final AuditService auditService;
+    
     private final RedissonClient redissonClient;
 
-    public IncidentServiceImpl(IncidentRepository incidentRepo, EmergencyUnitRepository unitRepo , RedissonClient redissonClient) {
+    public IncidentServiceImpl(IncidentRepository incidentRepo, EmergencyUnitRepository unitRepo,
+            RedissonClient redissonClient, AuditService auditService) {
         this.incidentRepo = incidentRepo;
         this.unitRepo = unitRepo;
         this.redissonClient = redissonClient;
+        this.auditService = auditService;
     }
 
     @Override
@@ -80,7 +86,11 @@ public class IncidentServiceImpl implements IncidentService {
         if (incident.getLongitude() != null) existing.setLongitude(incident.getLongitude());
 
         existing.setUpdatedAt(LocalDateTime.now());
-        // TODO: add AuditLog entry here once AuditLog is ready
+        
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userId = (String) auth.getPrincipal();
+        auditService.logUpdate(userId, userId, auth.getAuthorities().toString(), "INCIDENT", id, null, null, "Incident updated");
+        
         return incidentRepo.save(existing);
     }
 
@@ -104,7 +114,10 @@ public class IncidentServiceImpl implements IncidentService {
             existing.setResolvedAt(LocalDateTime.now());
         }
 
-        // TODO: add AuditLog entry here once AuditLog is ready
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userId = (String) auth.getPrincipal();
+        auditService.logStatusChange(userId, userId, auth.getAuthorities().toString(), "INCIDENT", id, current.name(), newStatus.name(), "Incident status changed");
+        
         return incidentRepo.save(existing);
     }
 
@@ -156,7 +169,9 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setUpdatedAt(LocalDateTime.now());
         incidentRepo.save(incident);
 
-        // TODO: add AuditLog entry here once AuditLog is ready
+        auditService.logAssignment(currentUserId, currentUserId, "DISPATCHER", "INCIDENT", incidentId, request.getUnitId(), "Unit assigned to incident");
+
+        
         unitRepo.findById(request.getUnitId()).ifPresent(unit -> {
             unit.setStatus(UnitStatus.DISPATCHED);
             unitRepo.save(unit);
@@ -199,7 +214,12 @@ public class IncidentServiceImpl implements IncidentService {
             unit.setStatus(UnitStatus.AVAILABLE);
             unitRepo.save(unit);
         });
-        // TODO: add AuditLog entry here once AuditLog is ready
+        
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userId = (String) auth.getPrincipal();
+        auditService.logUpdate(userId, userId, auth.getAuthorities().toString(),
+                "INCIDENT", incidentId, null, null,
+                "Assignment " + assignmentId + " cancelled, unit " + assignment.getUnitId() + " returned to AVAILABLE");
 
         return assignment;
     }
