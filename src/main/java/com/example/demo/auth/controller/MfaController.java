@@ -1,4 +1,4 @@
-package com.example.demo.users.controller;
+package com.example.demo.auth.controller;
 
 import java.util.Map;
 
@@ -7,12 +7,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.demo.config.JwtUtil;
-import com.example.demo.users.dto.AuthResponseDTO;
-import com.example.demo.users.dto.MFASetupResponseDTO;
-import com.example.demo.users.dto.MFAVerifyRequestDTO;
-import com.example.demo.users.model.User;
-import com.example.demo.users.repository.UserRepository;
-import com.example.demo.users.service.MFAService;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
 
 import jakarta.servlet.http.HttpSession;
@@ -21,6 +15,13 @@ import lombok.RequiredArgsConstructor;
 
 // ADD THESE 2 IMPORTS:
 import com.example.demo.audit.service.AuditService;
+import com.example.demo.auth.dto.AuthResponseDTO;
+import com.example.demo.auth.dto.MFASetupResponseDTO;
+import com.example.demo.auth.dto.MFAVerifyRequestDTO;
+import com.example.demo.auth.model.User;
+import com.example.demo.auth.repository.UserRepository;
+import com.example.demo.auth.service.MFAService;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController

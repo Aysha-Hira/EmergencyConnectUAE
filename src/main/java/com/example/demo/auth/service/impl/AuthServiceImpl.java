@@ -1,4 +1,4 @@
-package com.example.demo.users.service.impl;
+package com.example.demo.auth.service.impl;
 
 import java.time.LocalDateTime;
 
@@ -6,14 +6,14 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.audit.service.AuditService;
+import com.example.demo.auth.dto.AuthResponseDTO;
+import com.example.demo.auth.dto.LoginRequestDTO;
+import com.example.demo.auth.dto.RegisterRequestDTO;
+import com.example.demo.auth.model.User;
+import com.example.demo.auth.repository.UserRepository;
+import com.example.demo.auth.service.AuthService;
+import com.example.demo.auth.service.MFAService;
 import com.example.demo.config.JwtUtil;
-import com.example.demo.users.dto.AuthResponseDTO;
-import com.example.demo.users.dto.LoginRequestDTO;
-import com.example.demo.users.dto.RegisterRequestDTO;
-import com.example.demo.users.model.User;
-import com.example.demo.users.repository.UserRepository;
-import com.example.demo.users.service.AuthService;
-import com.example.demo.users.service.MFAService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;

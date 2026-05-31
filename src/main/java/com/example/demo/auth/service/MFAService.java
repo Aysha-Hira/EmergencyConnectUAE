@@ -1,4 +1,4 @@
-package com.example.demo.users.service;
+package com.example.demo.auth.service;
 
 import com.warrenstrange.googleauth.GoogleAuthenticator;
 import com.warrenstrange.googleauth.GoogleAuthenticatorKey;

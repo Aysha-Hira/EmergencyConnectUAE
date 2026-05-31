@@ -1,4 +1,4 @@
-package com.example.demo.users.dto;
+package com.example.demo.auth.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
