@@ -68,4 +68,27 @@ public class Incident {
 
     @Field(name = "resolvedAt")
     private LocalDateTime resolvedAt;
+
+    @Field(name = "emirates")
+    private String emirates;
+
+    @Field(name = "landmark")
+    private String landmark;
+
+    // ===== MANUAL GETTERS/SETTERS =====
+    public String getEmirates() {
+        return emirates;
+    }
+
+    public void setEmirates(String emirates) {
+        this.emirates = emirates;
+    }
+
+    public String getLandmark() {
+        return landmark;
+    }
+
+    public void setLandmark(String landmark) {
+        this.landmark = landmark;
+    }
 }
