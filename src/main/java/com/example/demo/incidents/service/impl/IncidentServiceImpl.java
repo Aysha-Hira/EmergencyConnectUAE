@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.dispatch.service.PriorityDispatchService;
 import com.example.demo.exceptions.ResourceNotFoundException;
 import com.example.demo.incidents.dto.AssignmentRequestDTO;
 import com.example.demo.incidents.model.Assignment;
@@ -26,10 +27,12 @@ public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepo;
     private final RedissonClient redissonClient;
+    private final PriorityDispatchService priorityDispatchService;
 
-    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient) {
+    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient, PriorityDispatchService priorityDispatchService) {
         this.incidentRepo = incidentRepo;
         this.redissonClient = redissonClient;
+        this.priorityDispatchService = priorityDispatchService;
     }
 
     @Override
@@ -40,8 +43,13 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setCreatedAt(now);
         incident.setUpdatedAt(now);
         
-        // TODO: set reportedBy from JWT principal once security is configured
-        return incidentRepo.save(incident);
+          // Save the incident first
+        Incident saved = incidentRepo.save(incident);
+        
+        // Add to priority dispatch queue
+        priorityDispatchService.addToQueue(saved);
+        
+        return saved;
     }
 
     @Override
