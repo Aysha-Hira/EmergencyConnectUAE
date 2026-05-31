@@ -38,6 +38,10 @@ public class SecurityConfig {
                  .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                  .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                  .anyRequest().authenticated()
+                .requestMatchers("/api/auth/mfa/verify-login").permitAll()
+                .requestMatchers("/api/auth/mfa/setup", "/api/auth/mfa/verify-setup", "/api/auth/mfa/disable")
+                    .hasAnyRole("DISPATCHER", "HOSPITAL_ADMIN")
+                .requestMatchers("/api/auth/mfa/status").authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

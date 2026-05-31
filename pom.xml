@@ -29,6 +29,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<spring-aop.version>4.0.6</spring-aop.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -123,7 +124,29 @@
 			<artifactId>totp-spring-boot-starter</artifactId>
 			<version>1.7.1</version>
 		</dependency>
+			<!-- Google Authenticator TOTP Library -->
+	<dependency>
+		<groupId>com.warrenstrange</groupId>
+		<artifactId>googleauth</artifactId>
+		<version>1.5.0</version>
+	</dependency>
+
+	<!-- QR Code Generation (so user can scan instead of typing secret) -->
+	<dependency>
+		<groupId>com.google.zxing</groupId>
+		<artifactId>core</artifactId>
+		<version>3.5.3</version>
+	</dependency>
+	<dependency>
+		<groupId>com.google.zxing</groupId>
+		<artifactId>javase</artifactId>
+		<version>3.5.3</version>
+	</dependency>
+	<!-- Spring AOP for audit logging -->
+
 	</dependencies>
+
+	
 
 	<build>
 		<plugins>
