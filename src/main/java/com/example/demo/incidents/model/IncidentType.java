@@ -1,5 +1,12 @@
 package com.example.demo.incidents.model;
 
 public enum IncidentType {
-    MEDICAL, FIRE, POLICE, HAZMAT, RESCUE, NATURAL_DISASTER
+    MEDICAL, FIRE, POLICE, HAZMAT, RESCUE, NATURAL_DISASTER,
+     // UAE-specific incident types
+    HIGH_RISE_FIRE,      // Common in Dubai's skyscrapers
+    BEACH_RESCUE,        // Common along UAE coastline
+    DESERT_EMERGENCY,    // Off-road incidents
+    MALL_EVACUATION,     // Major shopping malls
+    SCHOOL_EMERGENCY,    // School-related incidents
+    ROAD_ACCIDENT        // Sheikh Zayed Road, E11 highway
 }
