@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Incidents — EmergencyConnectUAE</title>
+    <th:block th:replace="~{fragment/layout :: head}"></th:block>
+</head>
+<body>
+<div class="app-shell">
+    <th:block th:replace="~{fragment/sidebar :: sidebar('incidents')}"></th:block>
+    <div class="main">
+        <div class="topbar">
+            <div class="page-title">Incidents</div>
+            <div class="topbar-right">
+                <button id="createBtn" class="btn btn-primary" onclick="openCreateModal()">+ New Incident</button>
+            </div>
+        </div>
+        <div class="content">
+            <!-- Filters -->
+            <div class="card" style="margin-bottom:20px;padding:16px 20px;">
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <select id="filterStatus" onchange="loadIncidents()" style="width:160px;">
+                        <option value="">All Statuses</option>
+                        <option value="OPEN">Open</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="RESOLVED">Resolved</option>
+                        <option value="CANCELLED">Cancelled</option>
+                    </select>
+					<input type="text" id="filterDispatcher" placeholder="Filter by dispatcher..." 
+											       style="width:200px;" oninput="loadIncidents()">
+                    <select id="filterSize" onchange="loadIncidents()" style="width:100px;">
+                        <option value="10">10 / page</option>
+                        <option value="20">20 / page</option>
+                        <option value="50">50 / page</option>
+                    </select>
+                    <span style="font-size:12px;color:var(--text-muted);" id="totalCount"></span>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Type</th>
+                                <th>Severity</th>
+                                <th>Status</th>
+                                <th>Location</th>
+                                <th>Reported</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidentTable">
+                            <tr><td colspan="7" class="loading"><div class="spinner"></div><br>Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="modalTitle">New Incident</div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-error" id="modalError"></div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="iTitle" placeholder="Brief incident title">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="iDesc" placeholder="Describe the incident"></textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="iType">
+                        <option value="MEDICAL">Medical</option>
+                        <option value="FIRE">Fire</option>
+                        <option value="POLICE">Police</option>
+                        <option value="HAZMAT">Hazmat</option>
+                        <option value="RESCUE">Rescue</option>
+                        <option value="ROAD_ACCIDENT">Road Accident</option>
+                        <option value="HIGH_RISE_FIRE">High Rise Fire</option>
+                        <option value="BEACH_RESCUE">Beach Rescue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Severity</label>
+                    <select id="iSeverity">
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="CRITICAL">Critical</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Location</label>
+                <input type="text" id="iLocation" placeholder="e.g. Sheikh Zayed Road, Dubai">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Emirates</label>
+                    <select id="iEmirates">
+                        <option value="">Select emirate</option>
+                        <option value="Dubai">Dubai</option>
+                        <option value="Abu Dhabi">Abu Dhabi</option>
+                        <option value="Sharjah">Sharjah</option>
+                        <option value="Ajman">Ajman</option>
+                        <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                        <option value="Fujairah">Fujairah</option>
+                        <option value="Umm Al Quwain">Umm Al Quwain</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Landmark (optional)</label>
+                    <input type="text" id="iLandmark" placeholder="e.g. Near Burj Khalifa">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveIncident()">Create Incident</button>
+        </div>
+    </div>
+</div>
+
+<!-- Status Update Modal -->
+<div class="modal-overlay" id="statusModal">
+    <div class="modal" style="width:380px;">
+        <div class="modal-header">
+            <div class="modal-title">Update Status</div>
+            <button class="modal-close" onclick="document.getElementById('statusModal').classList.remove('open')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>New Status</label>
+                <select id="newStatus">
+                    <option value="OPEN">Open</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="document.getElementById('statusModal').classList.remove('open')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmStatusUpdate()">Update</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="assignModal">
+    <div class="modal" style="width:480px;">
+        <div class="modal-header">
+            <div class="modal-title">Assign to Incident</div>
+            <button class="modal-close" onclick="document.getElementById('assignModal').classList.remove('open')">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Assign Unit</label>
+                <select id="assignUnitId"><option value="">— Select Unit —</option></select>
+            </div>
+            <div class="form-group">
+                <label>Assign Hospital</label>
+                <select id="assignHospitalId"><option value="">— Select Hospital —</option></select>
+            </div>
+            <div class="form-group">
+                <label>Notes (optional)</label>
+                <input type="text" id="assignNotes" placeholder="Any notes...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="document.getElementById('assignModal').classList.remove('open')">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmAssign()">Assign</button>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{fragment/auth :: authScript}"></script>
+<script>
+    const token = localStorage.getItem('token');
+    let currentPage = 0;
+    let selectedIncidentId = null;
+
+    async function apiFetch(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers }
+        });
+        if (res.status === 401) { window.location.href = '/login'; return null; }
+        return res.json();
+    }
+
+    function severityBadge(s) {
+        const map = { CRITICAL:'critical', HIGH:'high', MEDIUM:'medium', LOW:'low' };
+        return `<span class="badge badge-${map[s]||'low'}">${s}</span>`;
+    }
+
+    function statusBadge(s) {
+        const map = { OPEN:'open', IN_PROGRESS:'progress', RESOLVED:'resolved', CANCELLED:'cancelled' };
+        return `<span class="badge badge-${map[s]||'open'}">${s.replace('_',' ')}</span>`;
+    }
+
+    function formatDate(dt) {
+        if (!dt) return '—';
+        return new Date(dt).toLocaleDateString('en-AE', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    }
+
+    async function loadIncidents(page = 0) {
+        currentPage = page;
+        const status = document.getElementById('filterStatus').value;
+        const size = document.getElementById('filterSize').value;
+		const dispatcher = document.getElementById('filterDispatcher').value.trim();
+		let url;
+		if (dispatcher) {
+		    url = `/api/incidents/by-dispatcher?username=${encodeURIComponent(dispatcher)}&page=${page}&size=${size}`;
+		    if (status) url += `&status=${status}`;
+		} else {
+		    url = `/api/incidents?page=${page}&size=${size}`;
+		    if (status) url += `&status=${status}`;
+		}
+
+        document.getElementById('incidentTable').innerHTML =
+            '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+
+        const data = await apiFetch(url);
+        if (!data) return;
+
+        document.getElementById('totalCount').textContent = data.totalElements != null ? `${data.totalElements} total` : '';
+
+        const rows = (data.content || []).map(i => `
+            <tr>
+                <td style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${i.title}">${i.title}</td>
+                <td style="color:var(--text-muted);font-size:12px;">${i.type}</td>
+                <td>${severityBadge(i.severity)}</td>
+                <td>${statusBadge(i.status)}</td>
+                <td style="color:var(--text-muted);font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.location||'—'}</td>
+                <td style="color:var(--text-muted);font-size:12px;">${formatDate(i.createdAt)}</td>
+                <td>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-secondary btn-sm" onclick="openStatusModal('${i.id}', '${i.status}')">Status</button>
+                        <button class="btn btn-secondary btn-sm" onclick="viewDetails('${i.id}')">Details</button>
+						<button class="btn btn-secondary btn-sm" onclick="openAssignModal('${i.id}')">Assign</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        document.getElementById('incidentTable').innerHTML = rows ||
+            '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No incidents found</div></div></td></tr>';
+
+        renderPagination(data.totalPages, page);
+    }
+
+    function renderPagination(total, current) {
+        if (total <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+        let html = '';
+        if (current > 0) html += `<button class="page-btn" onclick="loadIncidents(${current-1})">← Prev</button>`;
+        for (let i = 0; i < total; i++) {
+            if (total > 7 && Math.abs(i - current) > 2 && i !== 0 && i !== total-1) {
+                if (i === 1 || i === total-2) html += `<span style="color:var(--text-muted);padding:0 4px;">...</span>`;
+                continue;
+            }
+            html += `<button class="page-btn ${i===current?'active':''}" onclick="loadIncidents(${i})">${i+1}</button>`;
+        }
+        if (current < total-1) html += `<button class="page-btn" onclick="loadIncidents(${current+1})">Next →</button>`;
+        document.getElementById('pagination').innerHTML = html;
+    }
+
+    function openCreateModal() {
+        document.getElementById('modalTitle').textContent = 'New Incident';
+        document.getElementById('modalError').classList.remove('show');
+        ['iTitle','iDesc','iLocation','iLandmark'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('createModal').classList.add('open');
+    }
+
+    function closeModal() {
+        document.getElementById('createModal').classList.remove('open');
+    }
+
+    async function saveIncident() {
+        const body = {
+            title: document.getElementById('iTitle').value,
+            description: document.getElementById('iDesc').value,
+            type: document.getElementById('iType').value,
+            severity: document.getElementById('iSeverity').value,
+            location: document.getElementById('iLocation').value,
+            emirates: document.getElementById('iEmirates').value,
+            landmark: document.getElementById('iLandmark').value,
+        };
+
+        const data = await apiFetch('/api/incidents', { method: 'POST', body: JSON.stringify(body) });
+        if (!data) return;
+
+        if (data.error) {
+            const el = document.getElementById('modalError');
+            el.textContent = data.error;
+            el.classList.add('show');
+            return;
+        }
+
+        closeModal();
+        loadIncidents(0);
+    }
+
+    function openStatusModal(id, currentStatus) {
+        selectedIncidentId = id;
+        document.getElementById('newStatus').value = currentStatus;
+        document.getElementById('statusModal').classList.add('open');
+    }
+
+    async function confirmStatusUpdate() {
+        const status = document.getElementById('newStatus').value;
+        await apiFetch(`/api/incidents/${selectedIncidentId}/status?status=${status}`, { method: 'PATCH' });
+        document.getElementById('statusModal').classList.remove('open');
+        loadIncidents(currentPage);
+    }
+
+    function viewDetails(id) {
+        window.location.href = `/incidents?id=${id}`;
+    }
+
+    loadIncidents();
+	
+	document.addEventListener('DOMContentLoaded', () => {
+	    if (localStorage.getItem('role') !== 'DISPATCHER') {
+	        document.getElementById('createBtn').style.display = 'none';
+	    }
+	});
+	
+	let assigningIncidentId = null;
+
+	async function openAssignModal(incidentId) {
+	    assigningIncidentId = incidentId;
+
+	    // load available units
+	    const unitData = await apiFetch('/api/units/available?page=0&size=100');
+	    const unitSelect = document.getElementById('assignUnitId');
+	    unitSelect.innerHTML = '<option value="">— Select Unit —</option>';
+	    if (unitData && unitData.content) {
+	        unitData.content.forEach(u => {
+	            unitSelect.innerHTML += `<option value="${u.id}" data-type="${u.type}">${u.name} (${u.type})</option>`;
+	        });
+	    }
+
+	    // load hospitals
+	    const hospData = await apiFetch('/api/hospitals?page=0&size=100');
+	    const hospSelect = document.getElementById('assignHospitalId');
+	    hospSelect.innerHTML = '<option value="">— Select Hospital —</option>';
+	    if (hospData && hospData.content) {
+	        hospData.content.forEach(h => {
+	            hospSelect.innerHTML += `<option value="${h.id}">${h.name}</option>`;
+	        });
+	    }
+
+	    document.getElementById('assignModal').classList.add('open');
+	}
+
+	async function confirmAssign() {
+	    const unitId = document.getElementById('assignUnitId').value;
+	    const hospitalId = document.getElementById('assignHospitalId').value;
+	    const notes = document.getElementById('assignNotes').value;
+
+	    if (unitId) {
+	        const unitSelect = document.getElementById('assignUnitId');
+	        const unitType = unitSelect.selectedOptions[0].dataset.type || '';
+	        await apiFetch(`/api/incidents/${assigningIncidentId}/assignments`, {
+	            method: 'POST',
+	            body: JSON.stringify({ unitId, unitType, notes })
+	        });
+	    }
+
+	    if (hospitalId) {
+	        // fetch the full incident, set assignedHospitalId, PUT it back
+	        const incident = await apiFetch(`/api/incidents/${assigningIncidentId}`);
+	        if (incident) {
+	            incident.assignedHospitalId = hospitalId;
+	            await apiFetch(`/api/incidents/${assigningIncidentId}`, {
+	                method: 'PUT',
+	                body: JSON.stringify(incident)
+	            });
+	        }
+	    }
+
+	    document.getElementById('assignModal').classList.remove('open');
+	    loadIncidents(currentPage);
+	}
+</script>
+
+</body>
+</html>

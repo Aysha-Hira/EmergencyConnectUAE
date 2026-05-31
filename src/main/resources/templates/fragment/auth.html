@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<script th:fragment="authScript">
+    // Redirect to login if no token
+    if (!localStorage.getItem('token')) {
+        window.location.href = '/login';
+    }
+
+    // Set sidebar user info after DOM loads
+    document.addEventListener('DOMContentLoaded', () => {
+        const username = localStorage.getItem('username') || '?';
+        const role = localStorage.getItem('role') || '—';
+        const avatarEl = document.getElementById('sidebarAvatar');
+        const nameEl = document.getElementById('sidebarUsername');
+        const roleEl = document.getElementById('sidebarRole');
+        if (avatarEl) avatarEl.textContent = username.charAt(0).toUpperCase();
+        if (nameEl) nameEl.textContent = username;
+        if (roleEl) roleEl.textContent = role.replace(/_/g, ' ');
+    });
+
+    async function logout() {
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+        } catch(e) {}
+        localStorage.clear();
+        window.location.href = '/login';
+    }
+</script>
+</body>
+</html>

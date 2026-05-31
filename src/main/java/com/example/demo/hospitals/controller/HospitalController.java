@@ -28,7 +28,7 @@ public class HospitalController {
 
     // GET -- /api/hospitals?page=0&size=10&status=OPERATIONAL
     @GetMapping
-    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')") // only dispatchers/admins can view all hospitals
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN', 'RESPONDER')")
     public ResponseEntity<Page<Hospital>> getAllHospitals(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) HospitalStatus status) {
         size = Math.min(size, 100);
@@ -46,21 +46,21 @@ public class HospitalController {
 
     // GET -- /api/hospitals/{id}
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN', 'RESPONDER')")
     public ResponseEntity<Hospital> getById(@PathVariable String id) {
         return ResponseEntity.ok(hospitalService.getById(id));
     }
 
     // GET -- /api/hospitals/{id}/capacity
     @GetMapping("/{id}/capacity")
-    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN', 'RESPONDER')")
     public ResponseEntity<HospitalCapacityDTO> getCapacity(@PathVariable String id) {
         return ResponseEntity.ok(hospitalService.getCapacity(id));
     }
 
     // GET -- /api/hospitals/status/{status}?page=0&size=10
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN', 'RESPONDER')")
     public ResponseEntity<Page<Hospital>> getByStatus(@PathVariable HospitalStatus status,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         size = Math.min(size, 100);

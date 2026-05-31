@@ -9,6 +9,9 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -48,11 +51,15 @@ public class HospitalServiceImpl implements HospitalService {
     }
 
     @Override
+    @Cacheable(value = "hospitals", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<Hospital> getAllHospitals(Pageable pageable) {
         return hospitalRepo.findAll(pageable);
     }
 
     @Override
+    @Caching(evict = {
+    	    @CacheEvict(value = "hospitals", allEntries = true)
+    	})
     public Hospital saveNew(Hospital h) {
         h.setLastUpdated(LocalDateTime.now());
         return hospitalRepo.save(h);
@@ -65,6 +72,9 @@ public class HospitalServiceImpl implements HospitalService {
     }
 
     @Override
+    @Caching(evict = {
+    	    @CacheEvict(value = "hospitals", allEntries = true)
+    	})
     public Hospital update(Hospital h, String id) {
         Hospital existing = getById(id);
 
@@ -105,6 +115,9 @@ public class HospitalServiceImpl implements HospitalService {
     }
 
     @Override
+    @Caching(evict = {
+    	    @CacheEvict(value = "hospitals", allEntries = true)
+    	})
     public void delete(String id) {
         if (!hospitalRepo.existsById(id))
             throw new ResourceNotFoundException("Hospital", "hospitalId", id);
@@ -200,6 +213,7 @@ public class HospitalServiceImpl implements HospitalService {
     }
 
     @Override
+    @Cacheable(value = "hospitals", key = "'status-' + #status + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<Hospital> getByStatus(HospitalStatus status, Pageable pageable) {
         return hospitalRepo.findByStatus(status, pageable);
     }

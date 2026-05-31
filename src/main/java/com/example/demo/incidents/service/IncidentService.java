@@ -25,6 +25,7 @@ public interface IncidentService {
     Incident updateStatus(String id, IncidentStatus newStatus);
     Page<Incident> getByStatus(IncidentStatus status, Pageable pageable);
     Map<String, Object> getDashboardSummary();
+    Page<Incident> getByReporter(String reportedBy, Pageable pageable);
 
     // Assignments (embedded in incidents)
     Assignment addAssignment(String incidentId, AssignmentRequestDTO request);

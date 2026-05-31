@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Login — EmergencyConnectUAE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;600&display=swap');
+
+        :root {
+            --bg: #0a0e17;
+            --surface: #111827;
+            --surface2: #1a2235;
+            --border: #1e2d45;
+            --accent: #e63946;
+            --text: #e2e8f0;
+            --text-muted: #64748b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Source Sans 3', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            width: 420px;
+            padding: 20px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo-text {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 2px;
+        }
+
+        .logo-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 32px;
+        }
+
+        .card-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .form-group { margin-bottom: 16px; }
+
+        label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        input {
+            width: 100%;
+            padding: 11px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: 'Source Sans 3', sans-serif;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        input:focus { border-color: var(--accent); }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Source Sans 3', sans-serif;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            transition: background 0.15s;
+        }
+
+        .btn:hover { background: #c1121f; }
+
+        .link {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .link a { color: var(--accent); text-decoration: none; }
+        .link a:hover { text-decoration: underline; }
+
+        .alert {
+            padding: 11px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .alert.show { display: block; }
+        .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+
+        .mfa-section { display: none; }
+        .mfa-section.show { display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="logo">
+            <div class="logo-text">EmergencyConnect</div>
+            <div class="logo-sub">UAE Emergency Coordination Platform</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Sign In</div>
+            <div class="alert alert-error" id="errorMsg"></div>
+
+            <!-- Login form -->
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="Enter password">
+                </div>
+                <button class="btn" onclick="login()">Sign In</button>
+            </div>
+
+            <!-- MFA form (shown if MFA required) -->
+            <div id="mfaForm" class="mfa-section">
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+                    Enter the 6-digit code from your authenticator app.
+                </p>
+                <div class="form-group">
+                    <label>MFA Code</label>
+                    <input type="number" id="mfaCode" placeholder="000000" maxlength="6">
+                </div>
+                <button class="btn" onclick="verifyMfa()">Verify</button>
+            </div>
+        </div>
+
+        <div class="link">Don't have an account? <a href="/register">Register</a></div>
+    </div>
+
+    <script>
+        let pendingUserId = null;
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            hideError();
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showError(data.error || 'Login failed');
+                    return;
+                }
+
+                if (data.mfaRequired) {
+                    pendingUserId = data.userId;
+                    document.getElementById('loginForm').style.display = 'none';
+                    document.getElementById('mfaForm').classList.add('show');
+                    return;
+                }
+
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('username', data.username);
+                localStorage.setItem('role', data.role);
+                window.location.href = '/dashboard';
+
+            } catch (e) {
+                showError('Connection error. Is the server running?');
+            }
+        }
+
+        async function verifyMfa() {
+            const code = parseInt(document.getElementById('mfaCode').value);
+            hideError();
+
+            try {
+                const res = await fetch('/api/auth/mfa/verify-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: pendingUserId, code })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showError(data.error || 'Invalid MFA code');
+                    return;
+                }
+
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('username', data.username);
+                localStorage.setItem('role', data.role);
+                window.location.href = '/dashboard';
+
+            } catch (e) {
+                showError('Connection error');
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('show');
+        }
+
+        function hideError() {
+            document.getElementById('errorMsg').classList.remove('show');
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>

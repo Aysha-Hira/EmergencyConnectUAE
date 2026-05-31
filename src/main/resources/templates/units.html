@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Units — EmergencyConnectUAE</title>
+    <th:block th:replace="~{fragment/layout :: head}"></th:block>
+</head>
+<body>
+<div class="app-shell">
+    <th:block th:replace="~{fragment/sidebar :: sidebar('units')}"></th:block>
+    <div class="main">
+        <div class="topbar">
+            <div class="page-title">Emergency Units</div>
+            <div class="topbar-right">
+                <button id="createBtn" class="btn btn-primary" onclick="openCreateModal()">+ Add Unit</button>
+            </div>
+        </div>
+        <div class="content">
+            <div class="card" style="margin-bottom:20px;padding:16px 20px;">
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <select id="filterStatus" onchange="loadUnits()" style="width:160px;">
+                        <option value="">All Units</option>
+                        <option value="AVAILABLE">Available</option>
+                        <option value="DISPATCHED">Dispatched</option>
+                        <option value="UNAVAILABLE">Unavailable</option>
+                    </select>
+                    <span style="font-size:12px;color:var(--text-muted);" id="totalCount"></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Current Incident</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unitTable">
+                            <tr><td colspan="5" class="loading"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Unit Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal" style="width:420px;">
+        <div class="modal-header">
+            <div class="modal-title">Add Emergency Unit</div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-error" id="modalError"></div>
+            <div class="form-group">
+                <label>Unit Name</label>
+                <input type="text" id="uName" placeholder="e.g. AMB-001">
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="uType">
+                    <option value="AMBULANCE">Ambulance</option>
+                    <option value="FIRE_TRUCK">Fire Truck</option>
+                    <option value="POLICE_UNIT">Police Unit</option>
+                    <option value="PARAMEDIC_TEAM">Paramedic Team</option>
+                    <option value="HAZMAT_UNIT">Hazmat Unit</option>
+                    <option value="RESCUE_TEAM">Rescue Team</option>
+                </select>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Latitude</label>
+                    <input type="number" id="uLat" placeholder="25.2048" step="0.0001">
+                </div>
+                <div class="form-group">
+                    <label>Longitude</label>
+                    <input type="number" id="uLon" placeholder="55.2708" step="0.0001">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveUnit()">Add Unit</button>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{fragment/auth :: authScript}"></script>
+<script>
+    const token = localStorage.getItem('token');
+    let currentPage = 0;
+
+    async function apiFetch(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers }
+        });
+        if (res.status === 401) { window.location.href = '/login'; return null; }
+        return res.json();
+    }
+
+    function statusBadge(s) {
+        const map = { AVAILABLE:'resolved', DISPATCHED:'progress', UNAVAILABLE:'cancelled' };
+        return `<span class="badge badge-${map[s]||'cancelled'}">${s}</span>`;
+    }
+
+    async function loadUnits(page = 0) {
+        currentPage = page;
+        const status = document.getElementById('filterStatus').value;
+        const url = status === 'AVAILABLE'
+            ? `/api/units/available?page=${page}&size=10`
+            : `/api/units?page=${page}&size=10`;
+
+        document.getElementById('unitTable').innerHTML =
+            '<tr><td colspan="5" class="loading"><div class="spinner"></div></td></tr>';
+
+        const data = await apiFetch(url);
+        if (!data) return;
+
+        document.getElementById('totalCount').textContent = `${data.totalElements} total`;
+
+        const rows = (data.content || []).map(u => `
+            <tr>
+                <td style="font-weight:600;">${u.unitName}</td>
+                <td style="color:var(--text-muted);font-size:12px;">${u.unitType}</td>
+                <td>${statusBadge(u.status)}</td>
+                <td style="color:var(--text-muted);font-size:12px;">${u.currentIncidentId || '—'}</td>
+                <td>
+                    <select onchange="updateStatus('${u.id}', this.value)" style="width:130px;padding:5px 8px;font-size:12px;">
+                        <option value="">Change status...</option>
+                        <option value="AVAILABLE">Available</option>
+                        <option value="DISPATCHED">Dispatched</option>
+                        <option value="UNAVAILABLE">Unavailable</option>
+                    </select>
+                </td>
+            </tr>
+        `).join('');
+
+        document.getElementById('unitTable').innerHTML = rows ||
+            '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚑</div><div class="empty-text">No units found</div></div></td></tr>';
+
+        renderPagination(data.totalPages, page);
+    }
+
+    function renderPagination(total, current) {
+        if (total <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+        let html = '';
+        if (current > 0) html += `<button class="page-btn" onclick="loadUnits(${current-1})">← Prev</button>`;
+        for (let i = 0; i < total; i++) {
+            html += `<button class="page-btn ${i===current?'active':''}" onclick="loadUnits(${i})">${i+1}</button>`;
+        }
+        if (current < total-1) html += `<button class="page-btn" onclick="loadUnits(${current+1})">Next →</button>`;
+        document.getElementById('pagination').innerHTML = html;
+    }
+
+    async function updateStatus(id, status) {
+        if (!status) return;
+        await apiFetch(`/api/units/${id}/status?status=${status}`, { method: 'PUT' });
+        loadUnits(currentPage);
+    }
+
+    function openCreateModal() {
+        document.getElementById('modalError').classList.remove('show');
+        ['uName','uLat','uLon'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('createModal').classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('createModal').classList.remove('open'); }
+
+    async function saveUnit() {
+        const body = {
+            unitName: document.getElementById('uName').value,
+            unitType: document.getElementById('uType').value,
+            latitude: parseFloat(document.getElementById('uLat').value) || null,
+            longitude: parseFloat(document.getElementById('uLon').value) || null,
+        };
+
+        const data = await apiFetch('/api/units/add', { method: 'POST', body: JSON.stringify(body) });
+        if (!data) return;
+
+        if (data.error) {
+            const el = document.getElementById('modalError');
+            el.textContent = data.error;
+            el.classList.add('show');
+            return;
+        }
+
+        closeModal();
+        loadUnits(0);
+    }
+
+    loadUnits();
+	document.addEventListener('DOMContentLoaded', () => {
+	    if (localStorage.getItem('role') !== 'RESPONDER') {
+	        document.getElementById('createBtn').style.display = 'none';
+	    }
+	});
+</script>
+</body>
+</html>

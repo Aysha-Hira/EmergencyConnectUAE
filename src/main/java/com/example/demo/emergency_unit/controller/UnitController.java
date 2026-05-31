@@ -34,7 +34,7 @@ public class UnitController {
     private final EmergencyUnitService emergencyUnitService;
 
     @GetMapping
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     @Operation(summary = "Get all emergency units")
     public ResponseEntity<Page<EmergencyUnit>> getAllUnits(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) UnitStatus status) {
@@ -51,7 +51,7 @@ public class UnitController {
     }
 
     @GetMapping("/available")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     @Operation(summary = "Get all available units")
     public ResponseEntity<Page<EmergencyUnit>> getAvailableUnits(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -62,33 +62,33 @@ public class UnitController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     @Operation(summary = "Get a unit by ID")
     public ResponseEntity<EmergencyUnit> getUnitById(@PathVariable String id) {
         return ResponseEntity.ok(emergencyUnitService.getUnitById(id));
     }
 
     @GetMapping("/name")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     public ResponseEntity<EmergencyUnit> getUnitByName(@RequestParam String name) {
         return ResponseEntity.ok(emergencyUnitService.getUnitByName(name));
     }
 
     @GetMapping("/name/id")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     public ResponseEntity<String> getUnitIdByName(@RequestParam String name) {
         return ResponseEntity.ok(emergencyUnitService.getIdByName(name));
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     public ResponseEntity<EmergencyUnit> updateUnitStatus(@PathVariable String id,
             @RequestParam UnitStatus status) {
         return ResponseEntity.ok(emergencyUnitService.updateUnitStatus(id, status));
     }
 
     @PostMapping("/add")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     public ResponseEntity<EmergencyUnit> addNewUnit(@RequestBody UnitRequestDTO unitDTO) {
         return ResponseEntity.ok(emergencyUnitService.addNewUnit(unitDTO));
     }

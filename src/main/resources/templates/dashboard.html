@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard — EmergencyConnectUAE</title>
+    <th:block th:replace="~{fragment/layout :: head}"></th:block>
+</head>
+<body>
+<div class="app-shell">
+    <th:block th:replace="~{fragment/sidebar :: sidebar('dashboard')}"></th:block>
+    <div class="main">
+        <div class="topbar">
+            <div class="page-title">Dashboard</div>
+            <div class="topbar-right">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    System Operational
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <!-- Stat cards -->
+            <div class="grid-4" style="margin-bottom:24px;">
+                <div class="stat-card red">
+                    <div class="stat-label">Open Incidents</div>
+                    <div class="stat-value" id="openCount">—</div>
+                </div>
+                <div class="stat-card orange">
+                    <div class="stat-label">In Progress</div>
+                    <div class="stat-value" id="progressCount">—</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-label">Resolved Today</div>
+                    <div class="stat-value" id="resolvedCount">—</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="stat-label">Available Units</div>
+                    <div class="stat-value" id="unitCount">—</div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <!-- Recent incidents -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Recent Incidents</div>
+                        <a href="/incidents" style="font-size:12px;color:var(--accent);text-decoration:none;">View all →</a>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentIncidents">
+                                <tr><td colspan="4" class="loading"><div class="spinner"></div><br>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Hospital capacity -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Hospital Capacity</div>
+                        <a href="/hospitals" style="font-size:12px;color:var(--accent);text-decoration:none;">View all →</a>
+                    </div>
+                    <div id="hospitalList">
+                        <div class="loading"><div class="spinner"></div><br>Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{fragment/auth :: authScript}"></script>
+<script>
+    const token = localStorage.getItem('token');
+
+    async function apiFetch(url) {
+        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.status === 401) { window.location.href = '/login'; return null; }
+        return res.json();
+    }
+
+    function severityBadge(s) {
+        const map = { CRITICAL:'critical', HIGH:'high', MEDIUM:'medium', LOW:'low' };
+        return `<span class="badge badge-${map[s]||'low'}">${s}</span>`;
+    }
+
+    function statusBadge(s) {
+        const map = { OPEN:'open', IN_PROGRESS:'progress', RESOLVED:'resolved', CANCELLED:'cancelled' };
+        return `<span class="badge badge-${map[s]||'open'}">${s.replace('_',' ')}</span>`;
+    }
+
+    async function loadDashboard() {
+        const [incData, unitData, hospData] = await Promise.all([
+            apiFetch('/api/incidents?page=0&size=20'),
+            apiFetch('/api/units/available?page=0&size=1'),
+            apiFetch('/api/hospitals?page=0&size=10')
+        ]);
+
+        if (incData) {
+            const incidents = incData.content || [];
+            document.getElementById('openCount').textContent =
+                incidents.filter(i => i.status === 'OPEN').length;
+            document.getElementById('progressCount').textContent =
+                incidents.filter(i => i.status === 'IN_PROGRESS').length;
+            document.getElementById('resolvedCount').textContent =
+                incidents.filter(i => i.status === 'RESOLVED').length;
+
+            const rows = incidents.slice(0, 8).map(i => `
+                <tr>
+                    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${i.title}</td>
+                    <td style="color:var(--text-muted);font-size:12px;">${i.type}</td>
+                    <td>${severityBadge(i.severity)}</td>
+                    <td>${statusBadge(i.status)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('recentIncidents').innerHTML = rows ||
+                '<tr><td colspan="4" class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No incidents</div></td></tr>';
+        }
+
+        if (unitData) {
+            document.getElementById('unitCount').textContent = unitData.totalElements || 0;
+        }
+
+        if (hospData) {
+            const hospitals = hospData.content || [];
+            const html = hospitals.map(h => {
+                const pct = h.totalBeds ? Math.round(((h.totalBeds - (h.availableBeds||0)) / h.totalBeds) * 100) : 0;
+                const color = pct > 85 ? 'var(--accent)' : pct > 60 ? 'var(--warning)' : 'var(--success)';
+                return `
+                    <div style="margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <span style="font-size:13px;font-weight:600;">${h.name}</span>
+                            <span style="font-size:12px;color:var(--text-muted);">${h.availableBeds||0}/${h.totalBeds||0} beds free</span>
+                        </div>
+                        <div style="height:6px;background:var(--border);border-radius:3px;">
+                            <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.5s;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('hospitalList').innerHTML = html ||
+                '<div class="empty-state"><div class="empty-icon">🏥</div><div class="empty-text">No hospitals</div></div>';
+        }
+    }
+
+    loadDashboard();
+    setInterval(loadDashboard, 30000); // auto-refresh every 30s
+</script>
+</body>
+</html>

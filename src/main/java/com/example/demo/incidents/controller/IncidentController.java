@@ -32,7 +32,8 @@ public class IncidentController {
 
     // GET /api/incidents?page=0&size=10&status=OPEN
     @GetMapping
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
+
     public ResponseEntity<Page<Incident>> getAll(@RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size, @RequestParam(required = false) IncidentStatus status) {
 
@@ -51,7 +52,7 @@ public class IncidentController {
 
     // GET /api/incidents/{id}
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     public ResponseEntity<Incident> getById(@PathVariable String id) {
         return ResponseEntity.ok(incidentService.getById(id));
     }
@@ -90,7 +91,7 @@ public class IncidentController {
 
     // GET /api/incidents/{id}/assignments
     @GetMapping("/{id}/assignments")
-    @PreAuthorize("hasRole('DISPATCHER')")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
     public ResponseEntity<List<Assignment>> getAssignments(@PathVariable String id) {
         return ResponseEntity.ok(incidentService.getAssignments(id));
     }
@@ -109,5 +110,17 @@ public class IncidentController {
     public ResponseEntity<Assignment> cancelAssignment(@PathVariable String incidentId,
             @PathVariable String assignmentId) {
         return ResponseEntity.ok(incidentService.cancelAssignment(incidentId, assignmentId));
+    }
+    
+ // GET /api/incidents/by-dispatcher?username=john&page=0&size=10
+    @GetMapping("/by-dispatcher")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'RESPONDER')")
+    public ResponseEntity<Page<Incident>> getByReporter(
+            @RequestParam String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        size = Math.min(size, 100);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return ResponseEntity.ok(incidentService.getByReporter(username, pageable));
     }
 }

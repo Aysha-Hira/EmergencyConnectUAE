@@ -266,4 +266,9 @@ public class IncidentServiceImpl implements IncidentService {
         summary.put("resolvedIncidents", incidentRepo.findByStatus(IncidentStatus.RESOLVED, PageRequest.of(0, 1)).getTotalElements());
         return summary;
     }
+    
+    @Override
+    public Page<Incident> getByReporter(String reportedBy, Pageable pageable) {
+        return incidentRepo.findByReportedBy(reportedBy, pageable);
+    }
 }

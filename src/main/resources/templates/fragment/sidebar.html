@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<aside th:fragment="sidebar(active)" class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-text">EmergencyConnect</div>
+        <div class="logo-sub">UAE</div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-section">Operations</div>
+        <a href="/dashboard" th:classappend="${active == 'dashboard'} ? 'active'" class="nav-item">
+            <span class="nav-icon">⊞</span> Dashboard
+        </a>
+        <a href="/incidents" th:classappend="${active == 'incidents'} ? 'active'" class="nav-item">
+            <span class="nav-icon">⚠</span> Incidents
+        </a>
+        <a href="/units" th:classappend="${active == 'units'} ? 'active'" class="nav-item">
+            <span class="nav-icon">🚑</span> Units
+        </a>
+        <div class="nav-section" style="margin-top:8px;">Resources</div>
+        <a href="/hospitals" th:classappend="${active == 'hospitals'} ? 'active'" class="nav-item">
+            <span class="nav-icon">🏥</span> Hospitals
+        </a>
+        <div class="nav-section" style="margin-top:8px;">System</div>
+        <a href="/audit" th:classappend="${active == 'audit'} ? 'active'" class="nav-item">
+            <span class="nav-icon">📜</span> Audit Logs
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-info">
+            <div class="user-avatar" id="sidebarAvatar">?</div>
+            <div>
+                <div class="user-name" id="sidebarUsername">—</div>
+                <div class="user-role" id="sidebarRole">—</div>
+            </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Sign Out</button>
+    </div>
+</aside>
+
+<script th:fragment="sidebarScript">
+    const _username = localStorage.getItem('username') || '?';
+    const _role = localStorage.getItem('role') || '—';
+    document.getElementById('sidebarUsername').textContent = _username;
+    document.getElementById('sidebarRole').textContent = _role.replace('_', ' ');
+    document.getElementById('sidebarAvatar').textContent = _username.charAt(0).toUpperCase();
+
+    async function logout() {
+        await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+        });
+        localStorage.clear();
+        window.location.href = '/login';
+    }
+</script>
+</body>
+</html>

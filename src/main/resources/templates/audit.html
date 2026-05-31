@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Audit Logs — EmergencyConnectUAE</title>
+    <th:block th:replace="~{fragment/layout :: head}"></th:block>
+</head>
+<body>
+<div class="app-shell">
+    <th:block th:replace="~{fragment/sidebar :: sidebar('audit')}"></th:block>
+    <div class="main">
+        <div class="topbar">
+            <div class="page-title">Audit Logs</div>
+        </div>
+        <div class="content">
+            <div class="card" style="margin-bottom:20px;padding:16px 20px;">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" id="searchInput" placeholder="Search by user, action, details..." style="width:280px;" oninput="debounceSearch()">
+                    <select id="filterAction" onchange="loadLogs()" style="width:180px;">
+                        <option value="">All Actions</option>
+                        <option value="LOGIN_SUCCESS">Login Success</option>
+                        <option value="LOGIN_FAILED">Login Failed</option>
+                        <option value="CREATE">Create</option>
+                        <option value="UPDATE">Update</option>
+                        <option value="DELETE">Delete</option>
+                        <option value="ASSIGN">Assign</option>
+                        <option value="STATUS_CHANGE">Status Change</option>
+                        <option value="MFA_ENABLE">MFA Enable</option>
+                        <option value="MFA_VERIFY_SUCCESS">MFA Verify</option>
+                    </select>
+                    <span style="font-size:12px;color:var(--text-muted);" id="totalCount"></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Action</th>
+                                <th>Entity</th>
+                                <th>Details</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTable">
+                            <tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{fragment/auth :: authScript}"></script>
+<script>
+    const token = localStorage.getItem('token');
+    let currentPage = 0;
+    let searchTimer = null;
+
+    async function apiFetch(url) {
+        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.status === 401) { window.location.href = '/login'; return null; }
+        return res.json();
+    }
+
+    function actionBadge(a) {
+        if (!a) return '';
+        const color = a.includes('FAIL') ? 'var(--accent)'
+            : a.includes('LOGIN') ? 'var(--info)'
+            : a.includes('DELETE') ? 'var(--warning)'
+            : a.includes('MFA') ? 'var(--accent2)'
+            : 'var(--success)';
+        return `<span style="display:inline-block;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:600;background:${color}20;color:${color};">${a}</span>`;
+    }
+
+    function formatDate(dt) {
+        if (!dt) return '—';
+        return new Date(dt).toLocaleString('en-AE', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    }
+
+    async function loadLogs(page = 0) {
+        currentPage = page;
+        const search = document.getElementById('searchInput').value.trim();
+        const action = document.getElementById('filterAction').value;
+
+        let url;
+        if (search) {
+            url = `/api/audit/search?keyword=${encodeURIComponent(search)}&page=${page}&size=20`;
+        } else if (action) {
+            url = `/api/audit/action/${action}?page=${page}&size=20`;
+        } else {
+            url = `/api/audit?page=${page}&size=20`;
+        }
+
+        document.getElementById('logTable').innerHTML =
+            '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+
+        const data = await apiFetch(url);
+        if (!data) return;
+
+        document.getElementById('totalCount').textContent = `${data.totalElements} entries`;
+
+        const rows = (data.content || []).map(log => `
+            <tr>
+                <td style="color:var(--text-muted);font-size:12px;white-space:nowrap;">${formatDate(log.timestamp)}</td>
+                <td style="font-size:13px;font-weight:600;">${log.username || log.userId || '—'}</td>
+                <td style="font-size:12px;color:var(--text-muted);">${log.userRole || '—'}</td>
+                <td>${actionBadge(log.action)}</td>
+                <td style="font-size:12px;color:var(--text-muted);">${log.entityType||'—'}<br><span style="font-size:11px;">${(log.entityId||'').substring(0,12)}${log.entityId&&log.entityId.length>12?'...':''}</span></td>
+                <td style="font-size:12px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${log.details||''}">${log.details||'—'}</td>
+                <td>${log.success
+                    ? '<span style="color:var(--success);font-size:13px;">✓</span>'
+                    : '<span style="color:var(--accent);font-size:13px;">✗</span>'}</td>
+            </tr>
+        `).join('');
+
+        document.getElementById('logTable').innerHTML = rows ||
+            '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📜</div><div class="empty-text">No logs found</div></div></td></tr>';
+
+        renderPagination(data.totalPages, page);
+    }
+
+    function renderPagination(total, current) {
+        if (total <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+        let html = '';
+        if (current > 0) html += `<button class="page-btn" onclick="loadLogs(${current-1})">← Prev</button>`;
+        for (let i = 0; i < Math.min(total, 10); i++) {
+            html += `<button class="page-btn ${i===current?'active':''}" onclick="loadLogs(${i})">${i+1}</button>`;
+        }
+        if (current < total-1) html += `<button class="page-btn" onclick="loadLogs(${current+1})">Next →</button>`;
+        document.getElementById('pagination').innerHTML = html;
+    }
+
+    function debounceSearch() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadLogs(0), 400);
+    }
+
+    loadLogs();
+</script>
+</body>
+</html>

@@ -33,11 +33,14 @@ public class SecurityConfig {
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000))
                         .contentSecurityPolicy(csp -> csp
-                                .policyDirectives("default-src 'self'")))
+                                .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/mfa/verify-login").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/", "/login", "/register", "/dashboard",
+                        	    "/incidents", "/hospitals", "/audit", "/units",
+                        	    "/css/**", "/js/**").permitAll()
                         .requestMatchers("/api/auth/mfa/setup", "/api/auth/mfa/verify-setup", "/api/auth/mfa/disable")
                             .hasAnyRole("DISPATCHER", "HOSPITAL_ADMIN")
                         .requestMatchers("/api/auth/mfa/status").authenticated()

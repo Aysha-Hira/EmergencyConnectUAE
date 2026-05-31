@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Hospitals — EmergencyConnectUAE</title>
+    <th:block th:replace="~{fragment/layout :: head}"></th:block>
+</head>
+<body>
+<div class="app-shell">
+    <th:block th:replace="~{fragment/sidebar :: sidebar('hospitals')}"></th:block>
+    <div class="main">
+        <div class="topbar">
+            <div class="page-title">Hospitals</div>
+            <div class="topbar-right">
+                <button id="createBtn" class="btn btn-primary" onclick="openCreateModal()">+ Add Hospital</button>
+            </div>
+        </div>
+        <div class="content">
+            <div class="card" style="margin-bottom:20px;padding:16px 20px;">
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <select id="filterStatus" onchange="loadHospitals()" style="width:180px;">
+                        <option value="">All Statuses</option>
+                        <option value="OPERATIONAL">Operational</option>
+                        <option value="AT_CAPACITY">At Capacity</option>
+                        <option value="OFFLINE">Offline</option>
+                    </select>
+                    <span style="font-size:12px;color:var(--text-muted);" id="totalCount"></span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Available Beds</th>
+                                <th>ICU Beds</th>
+                                <th>ER</th>
+                                <th>Address</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hospitalTable">
+                            <tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="modalTitle">Add Hospital</div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-error" id="modalError"></div>
+            <input type="hidden" id="hId">
+            <div class="form-group">
+                <label>Hospital Name</label>
+                <input type="text" id="hName" placeholder="e.g. Sheikh Khalifa Medical City">
+            </div>
+            <div class="form-group">
+                <label>Address</label>
+                <input type="text" id="hAddress" placeholder="Full address">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Total Beds</label>
+                    <input type="number" id="hTotalBeds" placeholder="500" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Available Beds</label>
+                    <input type="number" id="hAvailBeds" placeholder="120" min="0">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>ICU Beds</label>
+                    <input type="number" id="hIcuBeds" placeholder="50" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Available ICU Beds</label>
+                    <input type="number" id="hAvailIcu" placeholder="10" min="0">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="hStatus">
+                        <option value="OPERATIONAL">Operational</option>
+                        <option value="AT_CAPACITY">At Capacity</option>
+                        <option value="OFFLINE">Offline</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ER Operational</label>
+                    <select id="hEr">
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+            </div>
+			<div id="resourceSection" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+			    <label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Resources</label>
+			    <div id="resourceList" style="margin:10px 0;display:flex;flex-direction:column;gap:8px;"></div>
+			    <div style="display:flex;gap:8px;margin-top:8px;">
+			        <select id="newResourceType" style="flex:1;">
+			            <option value="OXYGEN">Oxygen</option>
+			            <option value="BLOOD_BANK">Blood Bank</option>
+			            <option value="VENTILATOR">Ventilator</option>
+			            <option value="DEFIBRILLATOR">Defibrillator</option>
+			            <option value="AMBULANCE">Ambulance</option>
+			            <option value="BURN_UNIT">Burn Unit</option>
+			            <option value="TRAUMA_CENTER">Trauma Center</option>
+			        </select>
+			        <input type="number" id="newResourceQty" placeholder="Qty" style="width:70px;" min="0">
+			        <button class="btn btn-secondary" onclick="addResourceToHospital()">+ Add</button>
+			    </div>
+			</div>
+			</div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="btn btn-primary" id="saveBtn" onclick="saveHospital()">Add Hospital</button>
+        </div>
+    </div>
+</div>
+
+<script th:replace="~{fragment/auth :: authScript}"></script>
+<script>
+    const token = localStorage.getItem('token');
+    let currentPage = 0;
+    let editingId = null;
+
+    async function apiFetch(url, options = {}) {
+        const res = await fetch(url, {
+            ...options,
+            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers }
+        });
+        if (res.status === 401) { window.location.href = '/login'; return null; }
+        return res.json();
+    }
+
+    function statusBadge(s) {
+        const map = { OPERATIONAL:'operational', AT_CAPACITY:'capacity', OFFLINE:'offline' };
+        return `<span class="badge badge-${map[s]||'offline'}">${s.replace('_',' ')}</span>`;
+    }
+
+    function bedBar(avail, total) {
+        if (!total) return '—';
+        const pct = Math.round(((total - avail) / total) * 100);
+        const color = pct > 85 ? 'var(--accent)' : pct > 60 ? 'var(--warning)' : 'var(--success)';
+        return `
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:13px;">${avail}/${total}</span>
+                <div style="width:60px;height:6px;background:var(--border);border-radius:3px;">
+                    <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;"></div>
+                </div>
+            </div>`;
+    }
+
+    async function loadHospitals(page = 0) {
+        currentPage = page;
+        const status = document.getElementById('filterStatus').value;
+        const url = status
+            ? `/api/hospitals?status=${status}&page=${page}&size=10`
+            : `/api/hospitals?page=${page}&size=10`;
+
+        document.getElementById('hospitalTable').innerHTML =
+            '<tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr>';
+
+        const data = await apiFetch(url);
+        if (!data) return;
+
+        document.getElementById('totalCount').textContent = `${data.totalElements} total`;
+
+        const rows = (data.content || []).map(h => `
+            <tr>
+                <td style="font-weight:600;">${h.name}</td>
+                <td>${statusBadge(h.status||'OFFLINE')}</td>
+                <td>${bedBar(h.availableBeds||0, h.totalBeds||0)}</td>
+                <td>${bedBar(h.availableIcuBeds||0, h.icuBeds||0)}</td>
+                <td>${h.erOperational ? '<span style="color:var(--success);font-size:13px;">✓ Yes</span>' : '<span style="color:var(--text-muted);font-size:13px;">✗ No</span>'}</td>
+                <td style="color:var(--text-muted);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.address||'—'}</td>
+                <td>
+                    <div style="display:flex;gap:6px;">
+                        <button class="btn btn-secondary btn-sm" onclick="editHospital(${JSON.stringify(h).replace(/"/g,'&quot;')})">Edit</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        document.getElementById('hospitalTable').innerHTML = rows ||
+            '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🏥</div><div class="empty-text">No hospitals found</div></div></td></tr>';
+
+        renderPagination(data.totalPages, page);
+    }
+
+    function renderPagination(total, current) {
+        if (total <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+        let html = '';
+        if (current > 0) html += `<button class="page-btn" onclick="loadHospitals(${current-1})">← Prev</button>`;
+        for (let i = 0; i < total; i++) {
+            html += `<button class="page-btn ${i===current?'active':''}" onclick="loadHospitals(${i})">${i+1}</button>`;
+        }
+        if (current < total-1) html += `<button class="page-btn" onclick="loadHospitals(${current+1})">Next →</button>`;
+        document.getElementById('pagination').innerHTML = html;
+    }
+
+    async function viewCapacity(id, name) {
+        document.getElementById('capHospName').textContent = name;
+        document.getElementById('capacityBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+        document.getElementById('capacityModal').classList.add('open');
+
+        const data = await apiFetch(`/api/hospitals/${id}/capacity`);
+        if (!data) return;
+
+        const bedPct = data.totalBeds ? Math.round(((data.totalBeds - data.availableBeds) / data.totalBeds) * 100) : 0;
+        const icuPct = data.icuBeds ? Math.round(((data.icuBeds - data.availableIcuBeds) / data.icuBeds) * 100) : 0;
+
+        document.getElementById('capacityBody').innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+                <div class="stat-card ${bedPct>85?'red':bedPct>60?'orange':'green'}">
+                    <div class="stat-label">Available Beds</div>
+                    <div class="stat-value">${data.availableBeds||0}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">of ${data.totalBeds||0} total</div>
+                </div>
+                <div class="stat-card ${icuPct>85?'red':icuPct>60?'orange':'green'}">
+                    <div class="stat-label">ICU Beds</div>
+                    <div class="stat-value">${data.availableIcuBeds||0}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">of ${data.icuBeds||0} total</div>
+                </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
+                    <span style="color:var(--text-muted);">General Occupancy</span>
+                    <span>${bedPct}%</span>
+                </div>
+                <div style="height:8px;background:var(--border);border-radius:4px;">
+                    <div style="height:100%;width:${bedPct}%;background:${bedPct>85?'var(--accent)':bedPct>60?'var(--warning)':'var(--success)'};border-radius:4px;"></div>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding-top:12px;border-top:1px solid var(--border);">
+                <span style="color:var(--text-muted);">Emergency Room</span>
+                <span style="color:${data.erOperational?'var(--success)':'var(--accent)'};font-weight:600;">${data.erOperational?'Operational':'Offline'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:10px;">
+                <span style="color:var(--text-muted);">Overall Status</span>
+                ${statusBadge(data.status||'OFFLINE')}
+            </div>
+        `;
+    }
+
+    function openCreateModal() {
+        editingId = null;
+        document.getElementById('modalTitle').textContent = 'Add Hospital';
+        document.getElementById('saveBtn').textContent = 'Add Hospital';
+        document.getElementById('hId').value = '';
+        ['hName','hAddress'].forEach(id => document.getElementById(id).value = '');
+        ['hTotalBeds','hAvailBeds','hIcuBeds','hAvailIcu'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('modalError').classList.remove('show');
+        document.getElementById('createModal').classList.add('open');
+    }
+
+    function editHospital(h) {
+        editingId = h.id;
+        document.getElementById('modalTitle').textContent = 'Edit Hospital';
+        document.getElementById('saveBtn').textContent = 'Save Changes';
+        document.getElementById('hName').value = h.name || '';
+        document.getElementById('hAddress').value = h.address || '';
+        document.getElementById('hTotalBeds').value = h.totalBeds || '';
+        document.getElementById('hAvailBeds').value = h.availableBeds || '';
+        document.getElementById('hIcuBeds').value = h.icuBeds || '';
+        document.getElementById('hAvailIcu').value = h.availableIcuBeds || '';
+        document.getElementById('hStatus').value = h.status || 'OPERATIONAL';
+        document.getElementById('hEr').value = h.erOperational ? 'true' : 'false';
+        document.getElementById('modalError').classList.remove('show');
+        document.getElementById('createModal').classList.add('open');
+		
+		document.getElementById('resourceSection').style.display = 'block';
+		loadHospitalResources(h.id);
+    }
+
+    function closeModal() {
+        document.getElementById('createModal').classList.remove('open');
+    }
+
+    async function saveHospital() {
+        const body = {
+            name: document.getElementById('hName').value,
+            address: document.getElementById('hAddress').value,
+            totalBeds: parseInt(document.getElementById('hTotalBeds').value),
+            availableBeds: parseInt(document.getElementById('hAvailBeds').value),
+            icuBeds: parseInt(document.getElementById('hIcuBeds').value),
+            availableIcuBeds: parseInt(document.getElementById('hAvailIcu').value),
+            status: document.getElementById('hStatus').value,
+            erOperational: document.getElementById('hEr').value === 'true',
+        };
+
+        const url = editingId ? `/api/hospitals/${editingId}` : '/api/hospitals';
+        const method = editingId ? 'PUT' : 'POST';
+        const data = await apiFetch(url, { method, body: JSON.stringify(body) });
+        if (!data) return;
+
+        if (data.error || data.errors) {
+            const el = document.getElementById('modalError');
+            el.textContent = data.error || Object.values(data).join(', ');
+            el.classList.add('show');
+            return;
+        }
+		
+		editingId = data.id;
+		document.getElementById('resourceSection').style.display = 'block';
+		loadHospitalResources(data.id);
+		document.getElementById('modalTitle').textContent = 'Edit Hospital';
+		document.getElementById('saveBtn').textContent = 'Save Changes';
+
+		if (method === 'PUT') {
+		    closeModal();
+		    loadHospitals(currentPage);
+		}
+    }
+	async function loadHospitalResources(hospitalId) {
+	    const data = await apiFetch(`/api/resources/available/hospital?hospitalId=${hospitalId}&page=0&size=100`);
+	    const list = document.getElementById('resourceList');
+	    if (!data || !data.content || data.content.length === 0) {
+	        list.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">No resources yet</span>';
+	        return;
+	    }
+	    list.innerHTML = data.content.map(r => `
+	        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface2);padding:8px 12px;border-radius:6px;">
+	            <span style="font-size:13px;">${r.name} — <strong>${r.availableQuantity}/${r.totalQuantity}</strong></span>
+	            <button class="btn btn-secondary btn-sm" onclick="deleteResource('${r.id}')">Remove</button>
+	        </div>
+	    `).join('');
+	}
+
+	async function addResourceToHospital() {
+	    const name = document.getElementById('newResourceType').value;
+	    const qty = parseInt(document.getElementById('newResourceQty').value) || 0;
+	    if (!editingId || qty <= 0) return;
+
+	    await apiFetch('/api/resources', {
+	        method: 'POST',
+	        body: JSON.stringify({ name, totalQuantity: qty, availableQuantity: qty, hospitalId: editingId })
+	    });
+	    loadHospitalResources(editingId);
+	}
+
+	async function deleteResource(resourceId) {
+	    await apiFetch(`/api/resources/${resourceId}`, { method: 'DELETE' });
+	    loadHospitalResources(editingId);
+	}
+	
+	loadHospitals();
+	document.addEventListener('DOMContentLoaded', () => {
+	    if (localStorage.getItem('role') !== 'HOSPITAL_ADMIN') {
+	        document.getElementById('createBtn').style.display = 'none';
+	    }
+	});
+</script>
+</body>
+</html>

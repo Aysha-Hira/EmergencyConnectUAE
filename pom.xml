@@ -130,6 +130,16 @@
 		<artifactId>googleauth</artifactId>
 		<version>1.5.0</version>
 	</dependency>
+	
+	<dependency>
+	    <groupId>org.springframework.boot</groupId>
+	    <artifactId>spring-boot-starter-thymeleaf</artifactId>
+	</dependency>
+	
+	<dependency>
+	    <groupId>com.fasterxml.jackson.datatype</groupId>
+	    <artifactId>jackson-datatype-jsr310</artifactId>
+	</dependency>
 
 	<!-- QR Code Generation (so user can scan instead of typing secret) -->
 	<dependency>

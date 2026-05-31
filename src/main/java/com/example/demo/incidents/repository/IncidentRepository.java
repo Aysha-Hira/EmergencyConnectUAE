@@ -12,4 +12,5 @@ public interface IncidentRepository extends MongoRepository<Incident, String> {
     Page<Incident> findAll(Pageable pageable);
     Page<Incident> findByStatus(IncidentStatus status, Pageable pageable);
     Page<Incident> findByType(IncidentType type, Pageable pageable);
+    Page<Incident> findByReportedBy(String reportedBy, Pageable pageable);
 }
