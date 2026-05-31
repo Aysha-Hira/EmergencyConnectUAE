@@ -19,6 +19,10 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+// ADD THESE 2 IMPORTS:
+import com.example.demo.audit.service.AuditService;
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/auth/mfa")
 @RequiredArgsConstructor
@@ -27,11 +31,11 @@ public class MfaController {
     private final MFAService mfaService;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    
+    // ADD THESE 2 FIELDS:
+    private final AuditService auditService;
+    private final HttpServletRequest httpServletRequest;
 
-    /**
-     * STEP 1: User enables MFA
-     * POST /api/auth/mfa/setup?userId=xxx
-     */
     @PostMapping("/setup")
     @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
     public ResponseEntity<MFASetupResponseDTO> setupMfa(@RequestParam String userId) {
@@ -43,11 +47,8 @@ public class MfaController {
             throw new RuntimeException("MFA is already enabled for this user");
         }
 
-        // Generate new credentials
         GoogleAuthenticatorKey key = mfaService.generateCredentials();
         String secret = key.getKey();
-        
-        // Generate QR code URL
         String qrUrl = mfaService.getQRCodeUrl(user.getEmail(), key);
         
         return ResponseEntity.ok(new MFASetupResponseDTO(
@@ -57,10 +58,6 @@ public class MfaController {
         ));
     }
 
-    /**
-     * STEP 2: Verify and enable MFA
-     * POST /api/auth/mfa/verify-setup?secret=xxx
-     */
     @PostMapping("/verify-setup")
     @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
     public ResponseEntity<String> verifyAndEnableMfa(
@@ -77,6 +74,8 @@ public class MfaController {
         boolean isValid = mfaService.verifyCode(secret, request.getCode());
         
         if (!isValid) {
+            // ADD THIS AUDIT LOG LINE:
+            auditService.logMfa(user.getId(), user.getUsername(), user.getRole().name(), "ENABLE_FAILED", false, "Invalid verification code");
             throw new RuntimeException("Invalid MFA code. Please try again.");
         }
 
@@ -84,13 +83,12 @@ public class MfaController {
         user.setMfaSecret(secret);
         userRepository.save(user);
 
+        // ADD THIS AUDIT LOG LINE:
+        auditService.logMfa(user.getId(), user.getUsername(), user.getRole().name(), "ENABLE", true, "MFA enabled via Google Authenticator");
+
         return ResponseEntity.ok("MFA enabled successfully! Next login will require code.");
     }
 
-    /**
-     * STEP 3: Verify MFA during login
-     * POST /api/auth/mfa/verify-login
-     */
     @PostMapping("/verify-login")
     public ResponseEntity<AuthResponseDTO> verifyLoginMfa(
             @Valid @RequestBody MFAVerifyRequestDTO request,
@@ -116,10 +114,11 @@ public class MfaController {
         boolean isValid = mfaService.verifyCode(user.getMfaSecret(), request.getCode());
         
         if (!isValid) {
+            // ADD THIS AUDIT LOG LINE:
+            auditService.logMfa(user.getId(), user.getUsername(), user.getRole().name(), "VERIFY_FAILED", false, "Invalid MFA code during login");
             throw new RuntimeException("Invalid MFA code. Please try again.");
         }
 
-        // Complete login
         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
 
         session.removeAttribute("pendingMfaUserId");
@@ -128,6 +127,9 @@ public class MfaController {
         session.setAttribute("userId", user.getId());
         session.setAttribute("username", user.getUsername());
         session.setAttribute("role", user.getRole().name());
+
+        // ADD THIS AUDIT LOG LINE:
+        auditService.logMfa(user.getId(), user.getUsername(), user.getRole().name(), "VERIFY_SUCCESS", true, "MFA verification successful");
 
         return ResponseEntity.ok(new AuthResponseDTO(
             user.getId(),
@@ -139,10 +141,6 @@ public class MfaController {
         ));
     }
 
-    /**
-     * Disable MFA for a user
-     * POST /api/auth/mfa/disable?userId=xxx
-     */
     @PostMapping("/disable")
     @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN')")
     public ResponseEntity<String> disableMfa(@RequestParam String userId) {
@@ -154,13 +152,12 @@ public class MfaController {
         user.setMfaSecret(null);
         userRepository.save(user);
 
+        // ADD THIS AUDIT LOG LINE:
+        auditService.logMfa(user.getId(), user.getUsername(), user.getRole().name(), "DISABLE", true, "MFA disabled");
+
         return ResponseEntity.ok("MFA disabled successfully");
     }
 
-    /**
-     * Get MFA status
-     * GET /api/auth/mfa/status?userId=xxx
-     */
     @GetMapping("/status")
     @PreAuthorize("hasAnyRole('DISPATCHER', 'HOSPITAL_ADMIN', 'RESPONDER')")
     public ResponseEntity<Map<String, Object>> getMfaStatus(@RequestParam String userId) {
