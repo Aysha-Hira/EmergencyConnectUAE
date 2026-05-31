@@ -49,13 +49,13 @@ public class Incident {
     private Double longitude;
 
     @Field(name = "reportedBy")
-    private String reportedBy;       // TODO: set from JWT once security is configured
+    private String reportedBy;
 
     @Field(name = "assignedDispatcher")
-    private String assignedDispatcher; // TODO: set from JWT once security is configured
+    private String assignedDispatcher;
 
     @Field(name = "assignedHospitalId")
-    private String assignedHospitalId; // set when hospital.assign() is called
+    private String assignedHospitalId;
 
     @Field(name = "assignments")
     private List<Assignment> assignments = new ArrayList<>();

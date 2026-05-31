@@ -15,7 +15,6 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // TODO: replace with your actual frontend URL in production
         config.setAllowedOrigins(List.of(
             "https://localhost:3000",
             "https://localhost:5173"

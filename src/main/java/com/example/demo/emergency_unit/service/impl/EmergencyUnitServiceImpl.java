@@ -32,7 +32,7 @@ public class EmergencyUnitServiceImpl implements EmergencyUnitService {
     @Override
     public Page<EmergencyUnit> getAvailableUnits(Pageable pageable) {
         return emergencyUnitRepository.findByStatusIn(
-                List.of(UnitStatus.AVAILABLE, UnitStatus.RETURNING), pageable);
+                List.of(UnitStatus.AVAILABLE), pageable);
     }
 
     @Override
@@ -90,7 +90,7 @@ public class EmergencyUnitServiceImpl implements EmergencyUnitService {
         if (newStatus == UnitStatus.AVAILABLE) {
             unit.setAssignedAt(null);
             unit.setStatus(newStatus);
-        } else if (newStatus == UnitStatus.RESPONDING_TO_INCIDENT) {
+        } else if (newStatus == UnitStatus.DISPATCHED) {
             unit.setAssignedAt(LocalDateTime.now());
         }
 

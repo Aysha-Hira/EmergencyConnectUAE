@@ -93,8 +93,8 @@ public class UnitController {
         return ResponseEntity.ok(emergencyUnitService.updateUnitStatus(id, status));
     }
 
-    // TODO: who here ???
     @PostMapping("/add")
+    @PreAuthorize("hasRole('DISPATCHER')")
     public ResponseEntity<EmergencyUnit> addNewUnit(@RequestBody UnitRequestDTO unitDTO) {
         return ResponseEntity.ok(emergencyUnitService.addNewUnit(unitDTO));
     }

@@ -35,11 +35,9 @@ public class SecurityConfig {
                         .contentSecurityPolicy(csp -> csp
                                 .policyDirectives("default-src 'self'")))
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
-                        //TODO: uncomment after testing for jwt filter implementation !!
-                // .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                // .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                // .anyRequest().authenticated()
+                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                 .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

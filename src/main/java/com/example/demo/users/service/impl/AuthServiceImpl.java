@@ -46,8 +46,7 @@ public class AuthServiceImpl implements AuthService {
 
         userRepo.save(user);
 
-        return new AuthResponseDTO(user.getId(), user.getUsername(),
-                user.getRole().name(), null, "Registered successfully");
+        return new AuthResponseDTO(user.getId(), user.getUsername(), user.getRole().name(), null, null, "Registered successfully");
     }
 
     @Override
@@ -63,24 +62,23 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Account is disabled");
         }
 
-         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
-
-
-        // Store session data in Redis — Spring Session handles this automatically
-        // because we added @EnableRedisHttpSession to SecurityConfig
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole().name());
+        
         session.setAttribute("userId", user.getId());
         session.setAttribute("username", user.getUsername());
         session.setAttribute("role", user.getRole().name());
-
+        
         // TODO: if user has MFA enabled, don't complete login here —
         // return a pending state and require MFA verification first
-
+        
         return new AuthResponseDTO(
                 user.getId(),
                 user.getUsername(),
                 user.getRole().name(),
-                token,
-                "Login successful");
+                session.getId(),
+                token,         // add token field
+                "Login successful"
+        );
     }
 
     @Override
