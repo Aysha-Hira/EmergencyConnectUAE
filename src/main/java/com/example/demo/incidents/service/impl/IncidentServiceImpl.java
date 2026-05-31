@@ -33,7 +33,8 @@ public class IncidentServiceImpl implements IncidentService {
     private final RedissonClient redissonClient;
     private final PriorityDispatchService priorityDispatchService;
 
-    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient) {
+    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient,
+            EmergencyUnitRepository unitRepo, PriorityDispatchService priorityDispatchService) {
         this.incidentRepo = incidentRepo;
         this.unitRepo = unitRepo;
         this.redissonClient = redissonClient;
@@ -43,14 +44,14 @@ public class IncidentServiceImpl implements IncidentService {
     @Override
     public Incident create(Incident incident) {
         incident.setStatus(IncidentStatus.OPEN);
-        
+
         LocalDateTime now = LocalDateTime.now();
         incident.setCreatedAt(now);
         incident.setUpdatedAt(now);
         String currentUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         incident.setReportedBy(currentUserId);
         incident.setAssignedDispatcher(currentUserId);
-        
+
         // TODO: set reportedBy from JWT principal once security is configured
         return incidentRepo.save(incident);
     }
@@ -75,13 +76,20 @@ public class IncidentServiceImpl implements IncidentService {
     public Incident update(Incident incident, String id) {
         Incident existing = getById(id);
 
-        if (incident.getTitle() != null) existing.setTitle(incident.getTitle());
-        if (incident.getDescription() != null) existing.setDescription(incident.getDescription());
-        if (incident.getType() != null) existing.setType(incident.getType());
-        if (incident.getSeverity() != null) existing.setSeverity(incident.getSeverity());
-        if (incident.getLocation() != null) existing.setLocation(incident.getLocation());
-        if (incident.getLatitude() != null) existing.setLatitude(incident.getLatitude());
-        if (incident.getLongitude() != null) existing.setLongitude(incident.getLongitude());
+        if (incident.getTitle() != null)
+            existing.setTitle(incident.getTitle());
+        if (incident.getDescription() != null)
+            existing.setDescription(incident.getDescription());
+        if (incident.getType() != null)
+            existing.setType(incident.getType());
+        if (incident.getSeverity() != null)
+            existing.setSeverity(incident.getSeverity());
+        if (incident.getLocation() != null)
+            existing.setLocation(incident.getLocation());
+        if (incident.getLatitude() != null)
+            existing.setLatitude(incident.getLatitude());
+        if (incident.getLongitude() != null)
+            existing.setLongitude(incident.getLongitude());
 
         existing.setUpdatedAt(LocalDateTime.now());
         // TODO: add AuditLog entry here once AuditLog is ready
@@ -94,7 +102,7 @@ public class IncidentServiceImpl implements IncidentService {
 
         // Enforce valid status transitions only
         // OPEN -> IN_PROGRESS -> RESOLVED or CANCELLED
-        
+
         // can't change after resolved or cancelled
         IncidentStatus current = existing.getStatus();
         if (current == IncidentStatus.RESOLVED || current == IncidentStatus.CANCELLED) {
@@ -121,57 +129,60 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     public Assignment addAssignment(String incidentId, AssignmentRequestDTO request) {
-        // To prevent two dispatchers being assigned the same unit to two different incidents at the same time
+        // To prevent two dispatchers being assigned the same unit to two different
+        // incidents at the same time
         String lockKey = "lock:unit:assign:" + request.getUnitId();
         RLock lock = redissonClient.getLock(lockKey);
         try {
             boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
-            if (!acquired) throw new RuntimeException("Could not acquire lock for unit " + request.getUnitId());
+            if (!acquired)
+                throw new RuntimeException("Could not acquire lock for unit " + request.getUnitId());
 
-        Incident incident = getById(incidentId);
+            Incident incident = getById(incidentId);
 
-        if (incident.getStatus() == IncidentStatus.RESOLVED ||
-            incident.getStatus() == IncidentStatus.CANCELLED) {
-            throw new RuntimeException("Cannot assign unit to a " + incident.getStatus() + " incident");
-        }
+            if (incident.getStatus() == IncidentStatus.RESOLVED ||
+                    incident.getStatus() == IncidentStatus.CANCELLED) {
+                throw new RuntimeException("Cannot assign unit to a " + incident.getStatus() + " incident");
+            }
 
-        boolean alreadyAssigned = incident.getAssignments().stream()
-                .anyMatch(a -> a.getUnitId().equals(request.getUnitId())
-                        && a.getStatus() == AssignmentStatus.ACTIVE);
-        if (alreadyAssigned) {
-            throw new RuntimeException("Unit " + request.getUnitId() + " is already assigned to this incident");
-        }
+            boolean alreadyAssigned = incident.getAssignments().stream()
+                    .anyMatch(a -> a.getUnitId().equals(request.getUnitId())
+                            && a.getStatus() == AssignmentStatus.ACTIVE);
+            if (alreadyAssigned) {
+                throw new RuntimeException("Unit " + request.getUnitId() + " is already assigned to this incident");
+            }
 
-        Assignment assignment = new Assignment();
-        assignment.setId(UUID.randomUUID().toString());
-        assignment.setUnitId(request.getUnitId());
-        assignment.setUnitType(request.getUnitType());
-        String currentUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        assignment.setAssignedBy(currentUserId);
-        assignment.setStatus(AssignmentStatus.ACTIVE);
-        assignment.setAssignedAt(LocalDateTime.now());
-        assignment.setNotes(request.getNotes());
+            Assignment assignment = new Assignment();
+            assignment.setId(UUID.randomUUID().toString());
+            assignment.setUnitId(request.getUnitId());
+            assignment.setUnitType(request.getUnitType());
+            String currentUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            assignment.setAssignedBy(currentUserId);
+            assignment.setStatus(AssignmentStatus.ACTIVE);
+            assignment.setAssignedAt(LocalDateTime.now());
+            assignment.setNotes(request.getNotes());
 
-        if (incident.getStatus() == IncidentStatus.OPEN) {
-            incident.setStatus(IncidentStatus.IN_PROGRESS);
-        }
+            if (incident.getStatus() == IncidentStatus.OPEN) {
+                incident.setStatus(IncidentStatus.IN_PROGRESS);
+            }
 
-        incident.getAssignments().add(assignment);
-        incident.setUpdatedAt(LocalDateTime.now());
-        incidentRepo.save(incident);
+            incident.getAssignments().add(assignment);
+            incident.setUpdatedAt(LocalDateTime.now());
+            incidentRepo.save(incident);
 
-        // TODO: add AuditLog entry here once AuditLog is ready
-        unitRepo.findById(request.getUnitId()).ifPresent(unit -> {
-            unit.setStatus(UnitStatus.DISPATCHED);
-            unitRepo.save(unit);
-        });
-        
-        return assignment;
+            // TODO: add AuditLog entry here once AuditLog is ready
+            unitRepo.findById(request.getUnitId()).ifPresent(unit -> {
+                unit.setStatus(UnitStatus.DISPATCHED);
+                unitRepo.save(unit);
+            });
+
+            return assignment;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Lock interrupted during unit assignment");
         } finally {
-            if (lock.isHeldByCurrentThread()) lock.unlock();
+            if (lock.isHeldByCurrentThread())
+                lock.unlock();
         }
     }
 
@@ -190,7 +201,7 @@ public class IncidentServiceImpl implements IncidentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", "assignmentId", assignmentId));
 
         if (assignment.getStatus() == AssignmentStatus.CANCELLED ||
-            assignment.getStatus() == AssignmentStatus.COMPLETED) {
+                assignment.getStatus() == AssignmentStatus.COMPLETED) {
             throw new RuntimeException("Assignment is already " + assignment.getStatus());
         }
 
