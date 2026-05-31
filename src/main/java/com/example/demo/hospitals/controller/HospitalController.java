@@ -16,8 +16,6 @@ import com.example.demo.hospitals.service.HospitalService;
 
 import jakarta.validation.Valid;
 
-// TODO: add @PreAuthorize role annotations once Spring Security is configured
-
 @RestController
 @RequestMapping("/api/hospitals")
 public class HospitalController {

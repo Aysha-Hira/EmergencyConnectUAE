@@ -49,7 +49,7 @@ public class Hospital {
 	private Boolean erOperational;
 
 	@Field(name = "resourceIds")
-	private List<String> resourceIds; // TODO: make this a list of resources
+	private List<String> resourceIds;
 
 	@Field(name = "status")
 	private HospitalStatus status;

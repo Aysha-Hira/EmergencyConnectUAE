@@ -58,8 +58,7 @@ public class AuthServiceImpl implements AuthService {
 
         userRepo.save(user);
 
-        return new AuthResponseDTO(user.getId(), user.getUsername(),
-                user.getRole().name(), null, "Registered successfully");
+        return new AuthResponseDTO(user.getId(), user.getUsername(), user.getRole().name(), null, null, "Registered successfully");
     }
 
     @Override
@@ -100,8 +99,10 @@ public class AuthServiceImpl implements AuthService {
                 user.getId(),
                 user.getUsername(),
                 user.getRole().name(),
-                token,
-                "Login successful");
+                session.getId(),
+                token,         // add token field
+                "Login successful"
+        );
     }
 
     @Override

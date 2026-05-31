@@ -53,12 +53,11 @@ public class EmergencyResourceServiceImpl implements EmergencyResourceService {
     })
     public EmergencyResource addResource(ResourceRequestDTO resourceDTO) {
         EmergencyResource newResource = new EmergencyResource();
-        newResource.setName(resourceDTO.getName());
+        newResource.setName(resourceDTO.getType());
         newResource.setAvailableQuantity(resourceDTO.getAvailableQuantity());
         newResource.setTotalQuantity(resourceDTO.getTotalQuantity());
         newResource.setHospitalId(resourceDTO.getHospitalId());
 
-        // TODO: New Exception needed here
         if (resourceDTO.getAvailableQuantity() > resourceDTO.getTotalQuantity())
             throw new IllegalArgumentException("Available quantity cannot exceed total quantity");
 
@@ -102,7 +101,7 @@ public class EmergencyResourceServiceImpl implements EmergencyResourceService {
             EmergencyResource existing = emergencyResourceRepository.findById(resourceId)
                     .orElseThrow(() -> new ResourceNotFoundException("Resource", "resourceId", resourceId));
 
-            existing.setName(dto.getName());
+            existing.setName(dto.getType());
             existing.setAvailableQuantity(dto.getAvailableQuantity());
             existing.setTotalQuantity(dto.getTotalQuantity());
             existing.setHospitalId(dto.getHospitalId());

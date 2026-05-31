@@ -19,7 +19,6 @@ import com.example.demo.incidents.service.IncidentService;
 
 import jakarta.validation.Valid;
 
-// TODO: add @PreAuthorize role annotations once Spring Security is configured
 
 @RestController
 @RequestMapping("/api/incidents")

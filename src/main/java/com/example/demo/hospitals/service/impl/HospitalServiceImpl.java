@@ -15,28 +15,29 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.hospitals.service.HospitalService;
-
+import com.example.demo.incidents.model.Incident;
 import com.example.demo.incidents.repository.IncidentRepository;
 import com.example.demo.hospitals.repository.HospitalRepository;
 
 import com.example.demo.hospitals.model.Hospital;
 import com.example.demo.hospitals.model.HospitalStatus;
 import com.example.demo.hospitals.dto.HospitalCapacityDTO;
-
+import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
 import com.example.demo.exceptions.ResourceNotFoundException;
 
 @Service
 public class HospitalServiceImpl implements HospitalService {
     private final IncidentRepository incidentRepo;
     private final HospitalRepository hospitalRepo;
+    private final EmergencyUnitRepository unitRepo;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedissonClient redissonClient;
 
-    public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo,
-            RedisTemplate<String, Object> redisTemplate,
-            RedissonClient redissonClient) {
+    public HospitalServiceImpl(IncidentRepository incidentRepo, HospitalRepository hospitalRepo, EmergencyUnitRepository unitRepo,
+            RedisTemplate<String, Object> redisTemplate, RedissonClient redissonClient) {
         this.incidentRepo = incidentRepo;
         this.hospitalRepo = hospitalRepo;
+        this.unitRepo = unitRepo;
 
         this.redisTemplate = redisTemplate;
         this.redissonClient = redissonClient;
@@ -139,9 +140,6 @@ public class HospitalServiceImpl implements HospitalService {
 
     @Override
     public String assign(String hospitalId, String incidentId) {
-        // TODO: once Incident model has fields (hospitalId, status etc), update the
-        // incident here too
-        // e.g. incident.setHospitalId(hospitalId); incidentRepo.save(incident);
 
         String lockKey = "lock:hospital:assign:" + hospitalId;
         RLock lock = redissonClient.getLock(lockKey);
@@ -160,10 +158,12 @@ public class HospitalServiceImpl implements HospitalService {
                 throw new RuntimeException("No available beds at hospital " + hospitalId);
             }
 
-            // TODO: validate incidentId exists once Incident model has fields
-            // Incident incident = incidentRepo.findById(incidentId)
-            // .orElseThrow(() -> new ResourceNotFoundException("Incident", "incidentId",
-            // incidentId));
+            Incident incident = incidentRepo.findById(incidentId)
+            		.orElseThrow(() -> new ResourceNotFoundException("Incident", "incidentId", incidentId));
+            
+            incident.setAssignedHospitalId(hospitalId);
+        	incident.setUpdatedAt(LocalDateTime.now());
+        	incidentRepo.save(incident);
 
             // Decrement available beds
             hospital.setAvailableBeds(hospital.getAvailableBeds() - 1);
@@ -179,7 +179,6 @@ public class HospitalServiceImpl implements HospitalService {
             // Invalidate capacity cache since it changed
             redisTemplate.delete("cache:hospital:capacity:" + hospitalId);
 
-            // TODO: embed assignment into incident document once Incident model is ready
             // TODO: save an AuditLog entry here once AuditLog model is ready
 
             return "Hospital " + hospitalId + " successfully assigned to incident " + incidentId;

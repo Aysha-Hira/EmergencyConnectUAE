@@ -10,7 +10,7 @@ import lombok.Data;
 public class ResourceRequestDTO {
 
     @NotNull(message = "Resource type is required")
-    private ResourceType name;
+    private ResourceType type;
 
     @Min(value = 0, message = "Available quantity cannot be negative")
     private int availableQuantity;

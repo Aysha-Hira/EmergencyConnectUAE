@@ -132,13 +132,13 @@ public class MfaController {
         auditService.logMfa(user.getId(), user.getUsername(), user.getRole().name(), "VERIFY_SUCCESS", true, "MFA verification successful");
 
         return ResponseEntity.ok(new AuthResponseDTO(
-            user.getId(),
-            user.getUsername(),
-            user.getRole().name(),
-            token,
-            "Login complete with MFA",
-            false
-        ));
+        	    user.getId(),
+        	    user.getUsername(),
+        	    user.getRole().name(),
+        	    session.getId(),  // sessionId
+        	    token,            // token
+        	    "Login complete with MFA"
+        	));
     }
 
     @PostMapping("/disable")

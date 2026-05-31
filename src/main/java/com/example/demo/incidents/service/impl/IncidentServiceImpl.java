@@ -6,9 +6,9 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import com.example.demo.dispatch.service.PriorityDispatchService;
 import com.example.demo.exceptions.ResourceNotFoundException;
 import com.example.demo.incidents.dto.AssignmentRequestDTO;
 import com.example.demo.incidents.model.Assignment;
@@ -26,11 +26,13 @@ import java.util.concurrent.TimeUnit;
 public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepo;
+    private final EmergencyUnitRepository unitRepo;
     private final RedissonClient redissonClient;
     private final PriorityDispatchService priorityDispatchService;
 
-    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient, PriorityDispatchService priorityDispatchService) {
+    public IncidentServiceImpl(IncidentRepository incidentRepo, RedissonClient redissonClient) {
         this.incidentRepo = incidentRepo;
+        this.unitRepo = unitRepo;
         this.redissonClient = redissonClient;
         this.priorityDispatchService = priorityDispatchService;
     }
@@ -42,14 +44,12 @@ public class IncidentServiceImpl implements IncidentService {
         LocalDateTime now = LocalDateTime.now();
         incident.setCreatedAt(now);
         incident.setUpdatedAt(now);
+        String currentUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        incident.setReportedBy(currentUserId);
+        incident.setAssignedDispatcher(currentUserId);
         
-          // Save the incident first
-        Incident saved = incidentRepo.save(incident);
-        
-        // Add to priority dispatch queue
-        priorityDispatchService.addToQueue(saved);
-        
-        return saved;
+        // TODO: set reportedBy from JWT principal once security is configured
+        return incidentRepo.save(incident);
     }
 
     @Override
@@ -118,7 +118,7 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     public Assignment addAssignment(String incidentId, AssignmentRequestDTO request) {
-        // Tprevent two dispatchers being assigned the same unit to two different incidents at the same time
+        // To prevent two dispatchers being assigned the same unit to two different incidents at the same time
         String lockKey = "lock:unit:assign:" + request.getUnitId();
         RLock lock = redissonClient.getLock(lockKey);
         try {
@@ -127,13 +127,11 @@ public class IncidentServiceImpl implements IncidentService {
 
         Incident incident = getById(incidentId);
 
-        // Check incident is still open or in progress — can't assign to resolved/cancelled
         if (incident.getStatus() == IncidentStatus.RESOLVED ||
             incident.getStatus() == IncidentStatus.CANCELLED) {
             throw new RuntimeException("Cannot assign unit to a " + incident.getStatus() + " incident");
         }
 
-        // Check unit isn't already assigned to this incident
         boolean alreadyAssigned = incident.getAssignments().stream()
                 .anyMatch(a -> a.getUnitId().equals(request.getUnitId())
                         && a.getStatus() == AssignmentStatus.ACTIVE);
@@ -141,17 +139,16 @@ public class IncidentServiceImpl implements IncidentService {
             throw new RuntimeException("Unit " + request.getUnitId() + " is already assigned to this incident");
         }
 
-        // Build the embedded assignment
         Assignment assignment = new Assignment();
         assignment.setId(UUID.randomUUID().toString());
         assignment.setUnitId(request.getUnitId());
         assignment.setUnitType(request.getUnitType());
-        assignment.setAssignedBy(request.getAssignedBy()); // TODO: replace with JWT principal
+        String currentUserId = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        assignment.setAssignedBy(currentUserId);
         assignment.setStatus(AssignmentStatus.ACTIVE);
         assignment.setAssignedAt(LocalDateTime.now());
         assignment.setNotes(request.getNotes());
 
-        // Move incident to IN_PROGRESS if it was OPEN
         if (incident.getStatus() == IncidentStatus.OPEN) {
             incident.setStatus(IncidentStatus.IN_PROGRESS);
         }
@@ -161,7 +158,10 @@ public class IncidentServiceImpl implements IncidentService {
         incidentRepo.save(incident);
 
         // TODO: add AuditLog entry here once AuditLog is ready
-        // TODO: update unit status to DISPATCHED in unit collection once Unit model is ready
+        unitRepo.findById(request.getUnitId()).ifPresent(unit -> {
+            unit.setStatus(UnitStatus.DISPATCHED);
+            unitRepo.save(unit);
+        });
         
         return assignment;
         } catch (InterruptedException e) {
@@ -181,7 +181,6 @@ public class IncidentServiceImpl implements IncidentService {
     public Assignment cancelAssignment(String incidentId, String assignmentId) {
         Incident incident = getById(incidentId);
 
-        // Find the assignment inside the embedded list
         Assignment assignment = incident.getAssignments().stream()
                 .filter(a -> a.getId().equals(assignmentId))
                 .findFirst()
@@ -197,7 +196,10 @@ public class IncidentServiceImpl implements IncidentService {
         incident.setUpdatedAt(LocalDateTime.now());
         incidentRepo.save(incident);
 
-        // TODO: update unit status back to AVAILABLE in unit collection once Unit model is ready
+        unitRepo.findById(assignment.getUnitId()).ifPresent(unit -> {
+            unit.setStatus(UnitStatus.AVAILABLE);
+            unitRepo.save(unit);
+        });
         // TODO: add AuditLog entry here once AuditLog is ready
 
         return assignment;
