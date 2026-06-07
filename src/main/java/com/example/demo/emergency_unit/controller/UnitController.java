@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.config.CachedPage;
+import com.example.demo.emergency_unit.dto.ReservationRequestDTO;
 import com.example.demo.emergency_unit.dto.UnitRequestDTO;
 import com.example.demo.emergency_unit.model.EmergencyUnit;
 import com.example.demo.emergency_unit.model.UnitStatus;
@@ -108,6 +110,20 @@ public class UnitController {
     @Operation(summary = "Register a new emergency unit")
     public ResponseEntity<EmergencyUnit> addNewUnit(@RequestBody UnitRequestDTO unitDTO) {
         return ResponseEntity.ok(emergencyUnitService.addNewUnit(unitDTO));
+    }
+    
+    @PostMapping("/reserve")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    @Operation(summary = "Reserve a unit for an anticipated incident")
+    public ResponseEntity<EmergencyUnit> reserveUnit(@RequestBody ReservationRequestDTO dto) {
+        return ResponseEntity.ok(emergencyUnitService.reserveUnit(dto));
+    }
+
+    @DeleteMapping("/{id}/reserve")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    @Operation(summary = "Cancel a reservation and release the unit back to available")
+    public ResponseEntity<EmergencyUnit> cancelReservation(@PathVariable String id) {
+        return ResponseEntity.ok(emergencyUnitService.cancelReservation(id));
     }
 
 }

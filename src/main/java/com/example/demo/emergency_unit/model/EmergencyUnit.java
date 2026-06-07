@@ -15,37 +15,41 @@ import lombok.Data;
 @Document(collection = "emergency_units")
 public class EmergencyUnit {
     @Id
-    String id;
+    private String id;
 
     @Indexed(unique = true)
-    String unitName;
+    private String unitName;
 
-    UnitType unitType;
+    private UnitType unitType;
 
-    Double latitude;
+    private Double latitude;
 
-    Double longitude;
+    private Double longitude;
 
-    UnitStatus status;
+    private UnitStatus status;
 
-    String currentIncidentId;
+    private String currentIncidentId;
 
     @Indexed(unique = true)
-    String responderID;
+    private String responderID;
 
     // depends on the unit type
-    List<UnitResource> resources;
+    private List<UnitResource> resources;
 
-    String responderId;
+    private String responderId;
 
     @CreatedDate
-    LocalDateTime createdDate;
+    private LocalDateTime createdDate;
 
     @LastModifiedDate
-    LocalDateTime updatedDate;
+    private LocalDateTime updatedDate;
 
     // time when they got assigned to a incident
     // resets when status becomes available (?)
-    LocalDateTime assignedAt;
+    private LocalDateTime assignedAt;
+    
+    private LocalDateTime reservationEndTime;
+    private String reservationReason;
+    private String reservationEmirates;
 
 }

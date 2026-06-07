@@ -14,6 +14,7 @@ import com.example.demo.dispatch.service.UnitLocatorService;
 import com.example.demo.emergency_unit.model.EmergencyUnit;
 import com.example.demo.emergency_unit.model.UnitStatus;
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
+import com.example.demo.emergency_unit.service.EmergencyUnitService;
 import com.example.demo.incidents.model.Incident;
 import com.example.demo.incidents.model.IncidentStatus;
 import com.example.demo.incidents.repository.IncidentRepository;
@@ -31,6 +32,7 @@ public class DispatchScheduler {
     private final UnitLocatorService unitLocatorService;
     private final IncidentRepository incidentRepository;
     private final EmergencyUnitRepository unitRepository;
+    private final EmergencyUnitService emergencyUnitService;
     private final RedissonClient redissonClient;
     private final CacheManager cacheManager;
     
@@ -177,5 +179,10 @@ public class DispatchScheduler {
                 lock.unlock();
             }
         }
+    }
+    
+    @Scheduled(fixedDelay = 60000)
+    public void expireReservations() {
+        emergencyUnitService.expireReservations();
     }
 }

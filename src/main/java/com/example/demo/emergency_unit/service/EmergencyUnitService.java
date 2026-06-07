@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.example.demo.config.CachedPage;
+import com.example.demo.emergency_unit.dto.ReservationRequestDTO;
 import com.example.demo.emergency_unit.dto.UnitRequestDTO;
 import com.example.demo.emergency_unit.model.EmergencyUnit;
 import com.example.demo.emergency_unit.model.UnitStatus;
@@ -23,5 +24,9 @@ public interface EmergencyUnitService {
     EmergencyUnit addNewUnit(UnitRequestDTO unitDTO);
 
     EmergencyUnit updateUnitStatus(String id, UnitStatus newStatus);
+    
+    EmergencyUnit reserveUnit(ReservationRequestDTO dto);
+    EmergencyUnit cancelReservation(String unitId);
+    void expireReservations();
 
 }

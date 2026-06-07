@@ -23,6 +23,7 @@
                         <option value="AVAILABLE">Available</option>
                         <option value="DISPATCHED">Dispatched</option>
                         <option value="UNAVAILABLE">Unavailable</option>
+						<option value="RESERVED">Reserved</option>
                     </select>
                     <span style="font-size:12px;color:var(--text-muted);" id="totalCount"></span>
                 </div>
@@ -107,10 +108,10 @@
 			    return res.json();
 			}
 
-    function statusBadge(s) {
-        const map = { AVAILABLE:'resolved', DISPATCHED:'progress', UNAVAILABLE:'cancelled' };
-        return `<span class="badge badge-${map[s]||'cancelled'}">${s}</span>`;
-    }
+	function statusBadge(s) {
+	    const map = { AVAILABLE:'resolved', DISPATCHED:'progress', UNAVAILABLE:'cancelled', RESERVED:'high' };
+	    return `<span class="badge badge-${map[s]||'cancelled'}">${s}</span>`;
+	}
 
     async function loadUnits(page = 0) {
         currentPage = page;
@@ -127,22 +128,27 @@
 
         document.getElementById('totalCount').textContent = `${data.totalElements} total`;
 
-        const rows = (data.content || []).map(u => `
-            <tr>
-                <td style="font-weight:600;">${u.unitName}</td>
-                <td style="color:var(--text-muted);font-size:12px;">${u.unitType}</td>
-                <td>${statusBadge(u.status)}</td>
-                <td style="color:var(--text-muted);font-size:12px;">${u.currentIncidentId || '—'}</td>
-                <td>
-                    <select onchange="updateStatus('${u.id}', this.value)" style="width:130px;padding:5px 8px;font-size:12px;">
-                        <option value="">Change status...</option>
-                        <option value="AVAILABLE">Available</option>
-                        <option value="DISPATCHED">Dispatched</option>
-                        <option value="UNAVAILABLE">Unavailable</option>
-                    </select>
-                </td>
-            </tr>
-        `).join('');
+		const role = localStorage.getItem('role');
+		const rows = (data.content || []).map(u => `
+		    <tr>
+		        <td style="font-weight:600;">${u.unitName}</td>
+		        <td style="color:var(--text-muted);font-size:12px;">${u.unitType}</td>
+		        <td>${statusBadge(u.status)}</td>
+		        <td style="color:var(--text-muted);font-size:12px;">${u.currentIncidentId || '—'}</td>
+		        <td>
+		            <div style="display:flex;gap:6px;">
+		                <select onchange="updateStatus('${u.id}', this.value)" style="width:130px;padding:5px 8px;font-size:12px;">
+		                    <option value="">Change status...</option>
+		                    <option value="AVAILABLE">Available</option>
+		                    <option value="DISPATCHED">Dispatched</option>
+		                    <option value="UNAVAILABLE">Unavailable</option>
+		                </select>
+		                ${role === 'DISPATCHER' && u.status === 'AVAILABLE' ? `<button class="btn btn-secondary btn-sm" onclick="openReserveModal('${u.id}')">Reserve</button>` : ''}
+		                ${role === 'DISPATCHER' && u.status === 'RESERVED' ? `<button class="btn btn-secondary btn-sm" onclick="cancelReservation('${u.id}')">Release</button>` : ''}
+		            </div>
+		        </td>
+		    </tr>
+		`).join('');
 
         document.getElementById('unitTable').innerHTML = rows ||
             '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🚑</div><div class="empty-text">No units found</div></div></td></tr>';
@@ -203,6 +209,93 @@
 	        document.getElementById('createBtn').style.display = 'none';
 	    }
 	});
+	
+	let reservingUnitId = null;
+
+	function openReserveModal(unitId) {
+	    reservingUnitId = unitId;
+	    document.getElementById('reserveError').classList.remove('show');
+	    document.getElementById('rReason').value = '';
+	    document.getElementById('rEmirates').value = '';
+	    document.getElementById('rEndTime').value = '';
+	    document.getElementById('reserveModal').classList.add('open');
+	}
+
+	function closeReserveModal() {
+	    document.getElementById('reserveModal').classList.remove('open');
+	}
+
+	async function confirmReserve() {
+	    const endTimeRaw = document.getElementById('rEndTime').value;
+	    if (!endTimeRaw) {
+	        const el = document.getElementById('reserveError');
+	        el.textContent = 'Please select an end time.';
+	        el.classList.add('show');
+	        return;
+	    }
+
+	    const body = {
+	        unitId: reservingUnitId,
+	        reason: document.getElementById('rReason').value,
+	        emirates: document.getElementById('rEmirates').value,
+	        endTime: endTimeRaw + ':00'
+	    };
+
+	    const data = await apiFetch('/api/units/reserve', { method: 'POST', body: JSON.stringify(body) });
+	    if (!data) return;
+
+	    if (data.error || data.message) {
+	        const el = document.getElementById('reserveError');
+	        el.textContent = data.error || data.message;
+	        el.classList.add('show');
+	        return;
+	    }
+
+	    closeReserveModal();
+	    loadUnits(currentPage);
+	}
+
+	async function cancelReservation(unitId) {
+	    if (!confirm('Release this reservation and return the unit to available?')) return;
+	    await apiFetch(`/api/units/${unitId}/reserve`, { method: 'DELETE' });
+	    loadUnits(currentPage);
+	}
 </script>
+<div class="modal-overlay" id="reserveModal">
+    <div class="modal" style="width:420px;">
+        <div class="modal-header">
+            <div class="modal-title">Reserve Unit</div>
+            <button class="modal-close" onclick="closeReserveModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-error" id="reserveError"></div>
+            <div class="form-group">
+                <label>Reason / Event</label>
+                <input type="text" id="rReason" placeholder="e.g. Dubai Marathon standby">
+            </div>
+            <div class="form-group">
+                <label>Emirates</label>
+                <select id="rEmirates">
+                    <option value="">Select emirate</option>
+                    <option value="Dubai">Dubai</option>
+                    <option value="Abu Dhabi">Abu Dhabi</option>
+                    <option value="Sharjah">Sharjah</option>
+                    <option value="Ajman">Ajman</option>
+                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                    <option value="Fujairah">Fujairah</option>
+                    <option value="Umm Al Quwain">Umm Al Quwain</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Reserved Until</label>
+                <input type="datetime-local" id="rEndTime">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeReserveModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmReserve()">Reserve</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
