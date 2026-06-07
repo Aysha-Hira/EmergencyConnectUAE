@@ -3,6 +3,7 @@ package com.example.demo.incidents.controller;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.config.CachedPage;
 import com.example.demo.incidents.dto.AssignmentRequestDTO;
 import com.example.demo.incidents.model.Assignment;
 import com.example.demo.incidents.model.Incident;
@@ -51,12 +53,18 @@ public class IncidentController {
         size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<Incident> result;
+        CachedPage<Incident> cached;
         if (status != null) {
-            result = incidentService.getByStatus(status, pageable);
+            cached = incidentService.getByStatus(status, pageable);
         } else {
-            result = incidentService.getAll(pageable);
+            cached = incidentService.getAll(pageable);
         }
+
+        Page<Incident> result = new PageImpl<>(
+            cached.getContent(),
+            PageRequest.of(cached.getPageNumber(), cached.getPageSize() == 0 ? 1 : cached.getPageSize()),
+            cached.getTotalElements()
+        );
 
         return ResponseEntity.ok(result);
     }

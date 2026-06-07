@@ -19,8 +19,12 @@ import com.example.demo.emergency_resource.service.EmergencyResourceService;
 import com.example.demo.exceptions.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import com.example.demo.config.CachedPage;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class EmergencyResourceServiceImpl implements EmergencyResourceService {
 
@@ -29,20 +33,26 @@ public class EmergencyResourceServiceImpl implements EmergencyResourceService {
 
     @Override
     @Cacheable(value = "resources", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<EmergencyResource> getAllResources(Pageable pageable) {
-        return emergencyResourceRepository.findAll(pageable);
+    public CachedPage<EmergencyResource> getAllResources(Pageable pageable) {
+        log.info("CACHE MISS - hitting MongoDB for all resources, page {}", pageable.getPageNumber());
+        Page<EmergencyResource> page = emergencyResourceRepository.findAll(pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override
     @Cacheable(value = "availableResources", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<EmergencyResource> getAvailableResources(Pageable pageable) {
-        return emergencyResourceRepository.findByStatus(ResourceStatus.AVAILABLE, pageable);
+    public CachedPage<EmergencyResource> getAvailableResources(Pageable pageable) {
+        log.info("CACHE MISS - hitting MongoDB for available resources, page {}", pageable.getPageNumber());
+        Page<EmergencyResource> page = emergencyResourceRepository.findByStatus(ResourceStatus.AVAILABLE, pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override
     @Cacheable(value = "availableResourcesPerHospital", key = "#hospitalId + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<EmergencyResource> getAvailableResourcesPerHospital(Pageable pageable, String hospitalId) {
-        return emergencyResourceRepository.findByStatusAndHospitalId(ResourceStatus.AVAILABLE, hospitalId, pageable);
+    public CachedPage<EmergencyResource> getAvailableResourcesPerHospital(Pageable pageable, String hospitalId) {
+        log.info("CACHE MISS - hitting MongoDB for available resources for hospital {}, page {}", hospitalId, pageable.getPageNumber());
+        Page<EmergencyResource> page = emergencyResourceRepository.findByStatusAndHospitalId(ResourceStatus.AVAILABLE, hospitalId, pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override

@@ -20,16 +20,22 @@ import org.springframework.stereotype.Service;
 import com.example.demo.hospitals.service.HospitalService;
 import com.example.demo.incidents.model.Incident;
 import com.example.demo.incidents.repository.IncidentRepository;
+import com.example.demo.incidents.service.impl.IncidentServiceImpl;
+
+import lombok.extern.slf4j.Slf4j;
+
 import com.example.demo.hospitals.repository.HospitalRepository;
 
 import com.example.demo.hospitals.model.Hospital;
 import com.example.demo.hospitals.model.HospitalStatus;
 import com.example.demo.hospitals.dto.HospitalCapacityDTO;
 import com.example.demo.audit.service.AuditService;
+import com.example.demo.config.CachedPage;
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
 import com.example.demo.exceptions.ResourceNotFoundException;
 
 @Service
+@Slf4j
 public class HospitalServiceImpl implements HospitalService {
     private final IncidentRepository incidentRepo;
     private final HospitalRepository hospitalRepo;
@@ -52,8 +58,10 @@ public class HospitalServiceImpl implements HospitalService {
 
     @Override
     @Cacheable(value = "hospitals", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<Hospital> getAllHospitals(Pageable pageable) {
-        return hospitalRepo.findAll(pageable);
+    public CachedPage<Hospital> getAllHospitals(Pageable pageable) {
+        log.info("CACHE MISS - hitting MongoDB for all hospitals, page {}", pageable.getPageNumber());
+        Page<Hospital> page = hospitalRepo.findAll(pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override
@@ -214,7 +222,9 @@ public class HospitalServiceImpl implements HospitalService {
 
     @Override
     @Cacheable(value = "hospitals", key = "'status-' + #status + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<Hospital> getByStatus(HospitalStatus status, Pageable pageable) {
-        return hospitalRepo.findByStatus(status, pageable);
+    public CachedPage<Hospital> getByStatus(HospitalStatus status, Pageable pageable) {
+        log.info("CACHE MISS - hitting MongoDB for hospitals by status {}, page {}", status, pageable.getPageNumber());
+        Page<Hospital> page = hospitalRepo.findByStatus(status, pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 }

@@ -1,6 +1,7 @@
 package com.example.demo.emergency_unit.controller;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.config.CachedPage;
 import com.example.demo.emergency_unit.dto.UnitRequestDTO;
 import com.example.demo.emergency_unit.model.EmergencyUnit;
 import com.example.demo.emergency_unit.model.UnitStatus;
@@ -40,12 +42,18 @@ public class UnitController {
         size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by("unitName").ascending());
 
-        Page<EmergencyUnit> result;
+        CachedPage<EmergencyUnit> cached;
         if (status != null && status.equals(UnitStatus.AVAILABLE)) {
-            result = emergencyUnitService.getAvailableUnits(pageable);
+            cached = emergencyUnitService.getAvailableUnits(pageable);
         } else {
-            result = emergencyUnitService.getAllUnits(pageable);
+            cached = emergencyUnitService.getAllUnits(pageable);
         }
+
+        Page<EmergencyUnit> result = new PageImpl<>(
+            cached.getContent(),
+            PageRequest.of(cached.getPageNumber(), cached.getPageSize() == 0 ? 1 : cached.getPageSize()),
+            cached.getTotalElements()
+        );
         return ResponseEntity.ok(result);
     }
 
@@ -57,7 +65,13 @@ public class UnitController {
         size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by("unitName").ascending());
 
-        return ResponseEntity.ok(emergencyUnitService.getAvailableUnits(pageable));
+        CachedPage<EmergencyUnit> cached = emergencyUnitService.getAvailableUnits(pageable);
+        Page<EmergencyUnit> result = new PageImpl<>(
+            cached.getContent(),
+            PageRequest.of(cached.getPageNumber(), cached.getPageSize() == 0 ? 1 : cached.getPageSize()),
+            cached.getTotalElements()
+        );
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}")

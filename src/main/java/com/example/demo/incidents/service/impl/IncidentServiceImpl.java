@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
 import com.example.demo.audit.service.AuditService;
+import com.example.demo.config.CachedPage;
 import com.example.demo.dispatch.service.PriorityDispatchService;
 import com.example.demo.emergency_unit.model.UnitStatus;
 import com.example.demo.emergency_unit.repository.EmergencyUnitRepository;
@@ -34,7 +35,10 @@ import com.example.demo.incidents.service.IncidentService;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class IncidentServiceImpl implements IncidentService {
 
     private final IncidentRepository incidentRepo;
@@ -80,14 +84,17 @@ public class IncidentServiceImpl implements IncidentService {
 
     @Override
     @Cacheable(value = "activeIncidents", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<Incident> getAll(Pageable pageable) {
-        return incidentRepo.findAll(pageable);
+    public CachedPage<Incident> getAll(Pageable pageable) {
+    	log.info("CACHE MISS - hitting MongoDB for all incidents, page {}", pageable.getPageNumber());
+        Page<Incident> page = incidentRepo.findAll(pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override
     @Cacheable(value = "activeIncidents", key = "'status-' + #status + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<Incident> getByStatus(IncidentStatus status, Pageable pageable) {
-        return incidentRepo.findByStatus(status, pageable);
+    public CachedPage<Incident> getByStatus(IncidentStatus status, Pageable pageable) {
+        Page<Incident> page = incidentRepo.findByStatus(status, pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override

@@ -1,16 +1,25 @@
 package com.example.demo.config;
 
 import java.time.Duration;
+import java.util.List;
 
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
+
 import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 import org.springframework.core.env.Environment;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -18,6 +27,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -32,7 +46,21 @@ public class RedisConfig {
     public RedisConfig(Environment env) {
         this.env = env;
     }
-
+    
+    @JsonDeserialize(as = PageImpl.class)
+    abstract static class PageImplMixin<T> {}
+    
+    public static class RestPageImpl<T> extends PageImpl<T> {
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public RestPageImpl(
+                @JsonProperty("content") List<T> content,
+                @JsonProperty("number") int number,
+                @JsonProperty("size") int size,
+                @JsonProperty("totalElements") long totalElements) {
+            super(content, PageRequest.of(number, size == 0 ? 1 : size), totalElements);
+        }
+    }
+    
     @Value("${spring.data.redis.host}")
     private String redisHost;
 
@@ -47,6 +75,8 @@ public class RedisConfig {
             mapper.getPolymorphicTypeValidator(),
             ObjectMapper.DefaultTyping.NON_FINAL
         );
+        mapper.addMixIn(Page.class, PageImplMixin.class);
+        mapper.addMixIn(PageImpl.class, RestPageImpl.class);
         return mapper;
     }
 
@@ -86,4 +116,5 @@ public class RedisConfig {
                 .cacheDefaults(config)
                 .build();
     }
+    
 }

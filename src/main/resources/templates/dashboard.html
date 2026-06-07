@@ -80,13 +80,17 @@
 
 <script th:replace="~{fragment/auth :: authScript}"></script>
 <script>
-    const token = localStorage.getItem('token');
 
-    async function apiFetch(url) {
-        const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
-        if (res.status === 401) { window.location.href = '/login'; return null; }
-        return res.json();
-    }
+
+	async function apiFetch(url, options = {}) {
+		    const token = localStorage.getItem('token');
+		    const res = await fetch(url, {
+		        ...options,
+		        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...options.headers }
+		    });
+		    if (res.status === 401) { window.location.href = '/login'; return null; }
+		    return res.json();
+		}
 
     function severityBadge(s) {
         const map = { CRITICAL:'critical', HIGH:'high', MEDIUM:'medium', LOW:'low' };

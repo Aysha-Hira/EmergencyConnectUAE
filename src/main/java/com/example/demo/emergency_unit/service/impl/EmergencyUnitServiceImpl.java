@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.config.CachedPage;
 import com.example.demo.emergency_unit.dto.UnitRequestDTO;
 import com.example.demo.emergency_unit.model.EmergencyUnit;
 import com.example.demo.emergency_unit.model.UnitStatus;
@@ -17,8 +18,10 @@ import com.example.demo.emergency_unit.service.EmergencyUnitService;
 import com.example.demo.exceptions.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class EmergencyUnitServiceImpl implements EmergencyUnitService {
 
@@ -27,26 +30,27 @@ public class EmergencyUnitServiceImpl implements EmergencyUnitService {
 
     @Override
     @Cacheable(value = "units", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<EmergencyUnit> getAllUnits(Pageable pageable) {
-        return emergencyUnitRepository.findAll(pageable);
+    public CachedPage<EmergencyUnit> getAllUnits(Pageable pageable) {
+        log.info("CACHE MISS - hitting MongoDB for all units, page {}", pageable.getPageNumber());
+        Page<EmergencyUnit> page = emergencyUnitRepository.findAll(pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override
     @Cacheable(value = "units", key = "'available-' + #pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<EmergencyUnit> getAvailableUnits(Pageable pageable) {
-        return emergencyUnitRepository.findByStatusIn(
-                List.of(UnitStatus.AVAILABLE), pageable);
+    public CachedPage<EmergencyUnit> getAvailableUnits(Pageable pageable) {
+        log.info("CACHE MISS - hitting MongoDB for available units, page {}", pageable.getPageNumber());
+        Page<EmergencyUnit> page = emergencyUnitRepository.findByStatusIn(List.of(UnitStatus.AVAILABLE), pageable);
+        return new CachedPage<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @Override
-    @Cacheable(value = "units", key = "#id")
     public EmergencyUnit getUnitById(String id) {
         return emergencyUnitRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Unit", "UnitId", id));
     }
 
     @Override
-    @Cacheable(value = "units", key = "'name-' + #name")
     public EmergencyUnit getUnitByName(String name) {
         return emergencyUnitRepository.findByUnitName(name)
                 .orElseThrow(() -> new ResourceNotFoundException("Unit", "UnitName", name));
@@ -54,7 +58,6 @@ public class EmergencyUnitServiceImpl implements EmergencyUnitService {
     }
 
     @Override
-    @Cacheable(value = "units", key = "'nameId-' + #name")
     public String getIdByName(String name) {
         EmergencyUnit emergencyUnit = emergencyUnitRepository.findByUnitName(name)
                 .orElseThrow(() -> new ResourceNotFoundException("Unit", "UnitName", name));

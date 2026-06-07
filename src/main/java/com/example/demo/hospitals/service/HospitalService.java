@@ -3,13 +3,13 @@ package com.example.demo.hospitals.service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import com.example.demo.config.CachedPage;
 import com.example.demo.hospitals.dto.HospitalCapacityDTO;
 import com.example.demo.hospitals.model.Hospital;
 import com.example.demo.hospitals.model.HospitalStatus;
 
 public interface HospitalService {
-	Page<Hospital> getAllHospitals(Pageable pageable);
-
+	CachedPage<Hospital> getAllHospitals(Pageable pageable);
 	// CRUD
 	Hospital saveNew(Hospital h);
 
@@ -24,5 +24,5 @@ public interface HospitalService {
 
 	String assign(String hospitalId, String incidentId);
 
-	Page<Hospital> getByStatus(HospitalStatus status, Pageable pageable);
+	CachedPage<Hospital> getByStatus(HospitalStatus status, Pageable pageable);
 }

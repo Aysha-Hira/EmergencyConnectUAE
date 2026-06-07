@@ -3,6 +3,7 @@ package com.example.demo.incidents.service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import com.example.demo.config.CachedPage;
 import com.example.demo.incidents.dto.AssignmentRequestDTO;
 import com.example.demo.incidents.model.Assignment;
 import com.example.demo.incidents.model.Incident;
@@ -13,7 +14,7 @@ import java.util.Map;
 
 public interface IncidentService {
 
-	Page<Incident> getAll(Pageable pageable);
+	CachedPage<Incident> getAll(Pageable pageable);
 	
     // CRUD
     Incident create(Incident incident);
@@ -23,7 +24,7 @@ public interface IncidentService {
     
     //Custom(for incidents)
     Incident updateStatus(String id, IncidentStatus newStatus);
-    Page<Incident> getByStatus(IncidentStatus status, Pageable pageable);
+    CachedPage<Incident> getByStatus(IncidentStatus status, Pageable pageable);
     Map<String, Object> getDashboardSummary();
     Page<Incident> getByReporter(String reportedBy, Pageable pageable);
 

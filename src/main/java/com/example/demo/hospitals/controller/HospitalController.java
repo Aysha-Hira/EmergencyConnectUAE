@@ -1,6 +1,7 @@
 package com.example.demo.hospitals.controller;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.config.CachedPage;
 import com.example.demo.hospitals.dto.HospitalCapacityDTO;
 import com.example.demo.hospitals.model.Hospital;
 import com.example.demo.hospitals.model.HospitalStatus;
@@ -46,12 +48,18 @@ public class HospitalController {
         size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
 
-        Page<Hospital> result;
+        CachedPage<Hospital> cached;
         if (status != null) {
-            result = hospitalService.getByStatus(status, pageable);
+            cached = hospitalService.getByStatus(status, pageable);
         } else {
-            result = hospitalService.getAllHospitals(pageable);
+            cached = hospitalService.getAllHospitals(pageable);
         }
+
+        Page<Hospital> result = new PageImpl<>(
+            cached.getContent(),
+            PageRequest.of(cached.getPageNumber(), cached.getPageSize() == 0 ? 1 : cached.getPageSize()),
+            cached.getTotalElements()
+        );
 
         return ResponseEntity.ok(result);
     }
@@ -81,7 +89,13 @@ public class HospitalController {
         size = Math.min(size, 100);
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
 
-        return ResponseEntity.ok(hospitalService.getByStatus(status, pageable));
+        CachedPage<Hospital> cached = hospitalService.getByStatus(status, pageable);
+        Page<Hospital> result = new PageImpl<>(
+            cached.getContent(),
+            PageRequest.of(cached.getPageNumber(), cached.getPageSize() == 0 ? 1 : cached.getPageSize()),
+            cached.getTotalElements()
+        );
+        return ResponseEntity.ok(result);
     }
 
     // POST -- /api/hospitals
