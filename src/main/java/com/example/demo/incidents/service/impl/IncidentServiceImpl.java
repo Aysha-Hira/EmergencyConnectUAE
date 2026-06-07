@@ -257,6 +257,10 @@ public class IncidentServiceImpl implements IncidentService {
     
     @Override
     @Cacheable(value = "dashboardSummary", key = "'summary'")
+    @Caching(evict = {
+    	    @CacheEvict(value = "activeIncidents", allEntries = true),
+    	    @CacheEvict(value = "dashboardSummary", allEntries = true)
+    	})
     public Map<String, Object> getDashboardSummary() {
         Map<String, Object> summary = new HashMap<>();
         

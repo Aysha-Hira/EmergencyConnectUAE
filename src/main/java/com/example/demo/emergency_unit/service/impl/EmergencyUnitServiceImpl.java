@@ -69,6 +69,7 @@ public class EmergencyUnitServiceImpl implements EmergencyUnitService {
     }
 
     @Override
+    @CacheEvict(value = "units", allEntries = true)
     public EmergencyUnit addNewUnit(UnitRequestDTO unitDTO) {
         if (emergencyUnitRepository.existsByUnitName(unitDTO.getUnitName())) {
             throw new IllegalArgumentException("Unit name already exists: " + unitDTO.getUnitName());
