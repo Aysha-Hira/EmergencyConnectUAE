@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.cache.CacheManager;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ public class DispatchScheduler {
     private final IncidentRepository incidentRepository;
     private final EmergencyUnitRepository unitRepository;
     private final RedissonClient redissonClient;
+    private final CacheManager cacheManager;
     
     /**
      * Runs every 5 seconds to check for pending incidents
@@ -160,6 +162,9 @@ public class DispatchScheduler {
             // Update incident status
             incident.setStatus(IncidentStatus.IN_PROGRESS);
             incidentRepository.save(incident);
+            
+            cacheManager.getCache("units").clear();
+            cacheManager.getCache("activeIncidents").clear();
             
             log.info("✅ ASSIGNED: Unit {} → Incident {} (Priority: {})", 
                      freshUnit.getUnitName(), incident.getId(), incident.getSeverity());
