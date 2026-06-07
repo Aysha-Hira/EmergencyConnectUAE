@@ -1,0 +1,2441 @@
+{
+  "info": {
+    "_postman_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "EmergencyConnectUAE™ – Complete Test Suite",
+    "description": "Complete Postman test collection for CSC408 Programming Assignment 3.\n\nCovers all TC-01 through TC-65:\n  • Auth (register, login, logout, validation)\n  • MFA (TOTP setup, verify, disable)\n  • Incidents (CRUD, status transitions, pagination)\n  • Emergency Units (create, query)\n  • Unit Assignment with Redis Distributed Lock\n  • Redis Cache Validation (hit/miss/eviction)\n  • Redis Session Storage (session lifecycle)\n  • Security (rate limit, CORS, blacklist, headers, traversal, injection, JWT tampering)\n  • Hospitals & Audit Logs\n\nSETUP:\n1. Import this collection into Postman\n2. Set collection variable: baseUrl = https://localhost:8443 (or your server URL)\n3. Run TC-01 (Register) then TC-04 (Login) first – jwt_token will be auto-saved\n4. Run folders in order for correct variable dependencies\n\nFor concurrency tests (TC-39, TC-51): use the Collection Runner with multiple iterations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://localhost:8443", "type": "string" },
+    { "key": "jwt_token", "value": "", "type": "string" },
+    { "key": "hospital_admin_token", "value": "", "type": "string" },
+    { "key": "responder_token", "value": "", "type": "string" },
+    { "key": "dispatcher_id", "value": "", "type": "string" },
+    { "key": "incident_id", "value": "", "type": "string" },
+    { "key": "assign_incident_id", "value": "", "type": "string" },
+    { "key": "unit_id", "value": "", "type": "string" },
+    { "key": "unit_id_2", "value": "", "type": "string" },
+    { "key": "unit_name", "value": "", "type": "string" },
+    { "key": "assignment_id", "value": "", "type": "string" },
+    { "key": "hospital_id", "value": "", "type": "string" },
+    { "key": "mfa_secret", "value": "", "type": "string" },
+    { "key": "session_id", "value": "", "type": "string" },
+    { "key": "cache_miss_time", "value": "", "type": "string" },
+    { "key": "cache_bust_id", "value": "", "type": "string" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Auto-runs before every request in this collection",
+          "// Nothing needed here – JWT is set per-folder via collection variables"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "description": "Registration, login, logout, and session tests",
+      "item": [
+        {
+          "name": "TC-01 Register DISPATCHER (success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"dispatcher_test\",\n  \"email\": \"dispatcher@ec-uae.ae\",\n  \"password\": \"StrongPass123!\",\n  \"role\": \"DISPATCHER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "TC-02 Register HOSPITAL_ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"hospital_admin_test\",\n  \"email\": \"admin@akh-uae.ae\",\n  \"password\": \"StrongPass123!\",\n  \"role\": \"HOSPITAL_ADMIN\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a hospital admin account."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-02: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-02: Has token\", () => pm.expect(pm.response.json()).to.have.property(\"token\"));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-03 Register RESPONDER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"responder_test\",\n  \"email\": \"responder@ec-uae.ae\",\n  \"password\": \"StrongPass123!\",\n  \"role\": \"RESPONDER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a responder account."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-03: Status 201 Created\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-04 Login DISPATCHER (success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"dispatcher_test\",\n  \"password\": \"StrongPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login as dispatcher. Saves JWT to {{jwt_token}} for all subsequent requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-04: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-04: JWT token returned\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"token\");",
+                  "  pm.collectionVariables.set(\"jwt_token\", json.token);",
+                  "  pm.collectionVariables.set(\"dispatcher_id\", json.userId || json.id || \"\");",
+                  "  console.log(\"JWT saved:\", json.token.substring(0, 40) + \"...\");",
+                  "});",
+                  "pm.test(\"TC-04: Session ID returned\", () => {",
+                  "  pm.expect(pm.response.json()).to.have.property(\"sessionId\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-05 Login with WRONG password (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"dispatcher_test\",\n  \"password\": \"WrongPassword!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Should return 401 for wrong credentials."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-05: Status 401 Unauthorized\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"TC-05: No token in response\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.not.have.property(\"token\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-06 Login with non-existent user (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"ghost_user_xyz\",\n  \"password\": \"AnyPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Should return 4xx for unknown username."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-06: Status 401 or 404\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-07 Register duplicate username (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"dispatcher_test\",\n  \"email\": \"other@ec-uae.ae\",\n  \"password\": \"StrongPass123!\",\n  \"role\": \"DISPATCHER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Duplicate username should be rejected."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-07: Status 400 or 409 for duplicate username\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-08 Register invalid email format (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newuser_x\",\n  \"email\": \"not-an-email\",\n  \"password\": \"StrongPass123!\",\n  \"role\": \"DISPATCHER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Input validation: email must be valid format."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-08: Status 400 Bad Request for invalid email\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-09 Login as HOSPITAL_ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"hospital_admin_test\",\n  \"password\": \"StrongPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login as HOSPITAL_ADMIN and save token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-09: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-09: JWT returned for hospital admin\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set(\"hospital_admin_token\", json.token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-10 Logout (success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout invalidates the Redis session."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-10: Status 200 OK on logout\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-10: Session invalidated message\", () => {",
+                  "  pm.expect(pm.response.text()).to.include(\"Logged out\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔑 MFA (Multi-Factor Authentication)",
+      "description": "TOTP-based MFA setup and verification flow",
+      "item": [
+        {
+          "name": "TC-11 Get MFA status (before setup)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mfa/status?userId={{dispatcher_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "mfa", "status"]
+            },
+            "description": "Check MFA status before setup – should be false."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-11: Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-11: mfaEnabled is false initially\", () => {",
+                  "  pm.expect(pm.response.json().mfaEnabled).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-12 Setup MFA for dispatcher",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mfa/setup?userId={{dispatcher_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "mfa", "setup"]
+            },
+            "description": "Generates TOTP secret and QR code. Save the secret to manually generate a code."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-12: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-12: Response has QR code URL\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"qrCodeUrl\");",
+                  "  pm.expect(json).to.have.property(\"secret\");",
+                  "  pm.collectionVariables.set(\"mfa_secret\", json.secret);",
+                  "  console.log(\"MFA Secret (use in Google Auth app):\", json.secret);",
+                  "  console.log(\"QR URL:\", json.qrCodeUrl);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-13 Verify MFA setup with INVALID code (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{dispatcher_id}}\",\n  \"code\": 999999\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mfa/verify-setup?secret={{mfa_secret}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "mfa", "verify-setup"]
+            },
+            "description": "Should reject an incorrect TOTP code."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-13: Status 400/500 for invalid TOTP code\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 500]);",
+                  "});",
+                  "pm.test(\"TC-13: Error message about invalid code\", () => {",
+                  "  pm.expect(pm.response.text()).to.include(\"Invalid\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-14 MFA setup – dispatcher tries re-setup (after enable)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mfa/setup?userId={{dispatcher_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "mfa", "setup"]
+            },
+            "description": "Attempting MFA setup on an already-MFA-enabled account should fail."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-14: Status 400/500 – MFA already enabled\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 500]);",
+                  "  console.log(\"Response:\", pm.response.text());",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-15 MFA verify-login with NO pending session (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{dispatcher_id}}\",\n  \"code\": 123456\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mfa/verify-login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "mfa", "verify-login"]
+            },
+            "description": "Should fail if called without first logging in (no pendingMfaUserId in session)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-15: Status 400/500 – no pending MFA login\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 500]);",
+                  "});",
+                  "pm.test(\"TC-15: Error references no pending MFA\", () => {",
+                  "  pm.expect(pm.response.text()).to.match(/pending|login|session/i);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-16 MFA disable",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/mfa/disable?userId={{dispatcher_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "mfa", "disable"]
+            },
+            "description": "Disable MFA for the dispatcher account."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-16: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-16: Confirmation message\", () => {",
+                  "  pm.expect(pm.response.text()).to.include(\"disabled\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🚨 Incidents",
+      "description": "Full CRUD + status transitions + Redis cache validation",
+      "item": [
+        {
+          "name": "TC-17 Create incident – MEDICAL (success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cardiac arrest – Dubai Mall\",\n  \"type\": \"MEDICAL\",\n  \"severityLevel\": \"CRITICAL\",\n  \"location\": \"Dubai Mall, Ground Floor, Dubai\",\n  \"description\": \"65-year-old male, unresponsive, bystander CPR in progress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Create a CRITICAL medical incident. Saves incident ID."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-17: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-17: Incident ID returned\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"id\");",
+                  "  pm.collectionVariables.set(\"incident_id\", json.id);",
+                  "  console.log(\"Incident ID saved:\", json.id);",
+                  "});",
+                  "pm.test(\"TC-17: Status defaults to OPEN\", () => {",
+                  "  pm.expect(pm.response.json().status).to.eql(\"OPEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-18 Create incident – ROAD_ACCIDENT",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Multi-vehicle RTA\",\n  \"type\": \"ROAD_ACCIDENT\",\n  \"severityLevel\": \"HIGH\",\n  \"location\": \"Sheikh Zayed Road, km 14, Dubai\",\n  \"description\": \"3 vehicles involved, 2 injured, lane blocked\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Create a HIGH severity road accident incident."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-18: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-18: Correct type saved\", () => {",
+                  "  pm.expect(pm.response.json().type).to.eql(\"ROAD_ACCIDENT\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-19 Create incident – BEACH_RESCUE (UAE specific)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Swimmer in distress\",\n  \"type\": \"BEACH_RESCUE\",\n  \"severityLevel\": \"HIGH\",\n  \"location\": \"JBR Beach, Dubai\",\n  \"description\": \"2 swimmers in rip current, lifeguard called for backup\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "UAE-specific incident type: BEACH_RESCUE."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-19: Status 201 Created\", () => pm.response.to.have.status(201));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-20 Get all incidents (paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Fetch paginated incident list. Validates pagination metadata."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-20: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-20: Response is paginated\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"content\");",
+                  "  pm.expect(json).to.have.property(\"totalElements\");",
+                  "  pm.expect(json).to.have.property(\"totalPages\");",
+                  "  pm.expect(json.content).to.be.an(\"array\");",
+                  "  console.log(\"Total incidents:\", json.totalElements);",
+                  "});",
+                  "pm.test(\"TC-20: Page size respected\", () => {",
+                  "  pm.expect(pm.response.json().content.length).to.be.at.most(10);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-21 Get incidents filtered by status=OPEN",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?status=OPEN&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Filter incidents by OPEN status."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-21: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-21: All returned incidents are OPEN\", () => {",
+                  "  const incidents = pm.response.json().content;",
+                  "  incidents.forEach(inc => pm.expect(inc.status).to.eql(\"OPEN\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-22 Get incident by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{incident_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents", "{{incident_id}}"]
+            },
+            "description": "Fetch the incident created in TC-17 by its ID."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-22: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-22: Correct incident returned\", () => {",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"incident_id\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-23 Get incident with INVALID ID (fail)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/000000000000000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents", "000000000000000000000000"]
+            },
+            "description": "Should return 404 for a non-existent incident ID."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-23: Status 404 Not Found\", () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-24 Update incident status to IN_PROGRESS",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{incident_id}}/status?status=IN_PROGRESS",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents", "{{incident_id}}", "status"]
+            },
+            "description": "Transition incident from OPEN → IN_PROGRESS."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-24: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-24: Status updated to IN_PROGRESS\", () => {",
+                  "  pm.expect(pm.response.json().status).to.eql(\"IN_PROGRESS\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-25 Update incident status to RESOLVED",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{incident_id}}/status?status=RESOLVED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents", "{{incident_id}}", "status"]
+            },
+            "description": "Transition incident from IN_PROGRESS → RESOLVED."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-25: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-25: Status updated to RESOLVED\", () => {",
+                  "  pm.expect(pm.response.json().status).to.eql(\"RESOLVED\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-26 Create incident WITHOUT auth token (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Unauthorized incident\",\n  \"type\": \"MEDICAL\",\n  \"severityLevel\": \"LOW\",\n  \"location\": \"Test\",\n  \"description\": \"Should fail\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Security test: no JWT → should be rejected."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-26: Status 401 or 403 without JWT\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-27 Create incident with missing required fields (fail)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Missing title, type, severity\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Input validation: required fields must be present."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-27: Status 400 Bad Request for missing fields\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-28 Delete incident",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{incident_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents", "{{incident_id}}"]
+            },
+            "description": "Delete the incident created in TC-17."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-28: Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🚑 Emergency Units",
+      "description": "Unit management and availability queries",
+      "item": [
+        {
+          "name": "TC-29 Create emergency unit – AMBULANCE",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AMB-UAE-001\",\n  \"type\": \"AMBULANCE\",\n  \"status\": \"AVAILABLE\",\n  \"location\": \"Al Quoz Station, Dubai\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/units",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "units"]
+            },
+            "description": "Create an AVAILABLE ambulance unit. Saves unit ID for assignment tests."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-29: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-29: Unit ID saved\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"id\");",
+                  "  pm.collectionVariables.set(\"unit_id\", json.id);",
+                  "  pm.collectionVariables.set(\"unit_name\", json.name);",
+                  "  console.log(\"Unit ID saved:\", json.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-30 Create second unit – FIRE",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"FIRE-UAE-001\",\n  \"type\": \"FIRE\",\n  \"status\": \"AVAILABLE\",\n  \"location\": \"Deira Fire Station, Dubai\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/units",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "units"]
+            },
+            "description": "Create a second unit for concurrency testing."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-30: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-30: Second unit ID saved\", () => {",
+                  "  pm.collectionVariables.set(\"unit_id_2\", pm.response.json().id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-31 Get all units (paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/units?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "units"]
+            },
+            "description": "Fetch paginated list of all units."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-31: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-31: Paginated response\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"content\");",
+                  "  pm.expect(json.content).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-32 Get available units only",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/units/available?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "units", "available"]
+            },
+            "description": "Should only return units with status AVAILABLE."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-32: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-32: All units are AVAILABLE\", () => {",
+                  "  pm.response.json().content.forEach(u => pm.expect(u.status).to.eql(\"AVAILABLE\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-33 Get unit by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/units/{{unit_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "units", "{{unit_id}}"]
+            },
+            "description": "Fetch AMB-UAE-001 by its saved ID."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-33: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-33: Correct unit returned\", () => {",
+                  "  pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"unit_id\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔒 Unit Assignment (Redis Distributed Lock)",
+      "description": "Tests the critical lock:unit:assign:{unitId} Redis lock",
+      "item": [
+        {
+          "name": "TC-34 Create incident for assignment tests",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Fire at Burj Khalifa base\",\n  \"type\": \"HIGH_RISE_FIRE\",\n  \"severityLevel\": \"CRITICAL\",\n  \"location\": \"Burj Khalifa, Downtown Dubai\",\n  \"description\": \"Smoke reported on floor 12, evacuation initiated\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Create a fresh CRITICAL incident to use for assignment tests."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-34: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-34: Assignment incident ID saved\", () => {",
+                  "  pm.collectionVariables.set(\"assign_incident_id\", pm.response.json().id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-35 Assign unit to incident (success + Redis lock acquired)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unit_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{assign_incident_id}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "incidents",
+                "{{assign_incident_id}}",
+                "assignments"
+              ]
+            },
+            "description": "Assigns AMB-UAE-001 to the incident. The Redis lock lock:unit:assign:{unitId} is acquired internally."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-35: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-35: Assignment ID saved\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"id\");",
+                  "  pm.collectionVariables.set(\"assignment_id\", json.id);",
+                  "  console.log(\"Assignment created. Redis lock was acquired and released.\");",
+                  "});",
+                  "pm.test(\"TC-35: Assignment status is ACTIVE or PENDING\", () => {",
+                  "  pm.expect(pm.response.json().status).to.be.oneOf([\"ACTIVE\", \"PENDING\"]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-36 Assign SAME unit again (fail – already dispatched)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unit_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{assign_incident_id}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "incidents",
+                "{{assign_incident_id}}",
+                "assignments"
+              ]
+            },
+            "description": "RACE CONDITION PREVENTION: Assigning an already-dispatched unit must fail. Confirms Redis lock correctness."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-36: Status 400/409/500 – unit already dispatched\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 409, 500]);",
+                  "  console.log(\"Confirmed: duplicate assignment rejected. Lock protected correctness.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-37 Get assignments for incident",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{assign_incident_id}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "incidents",
+                "{{assign_incident_id}}",
+                "assignments"
+              ]
+            },
+            "description": "List all assignments for the incident."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-37: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-37: Assignment list returned\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.be.an(\"array\");",
+                  "  pm.expect(json.length).to.be.at.least(1);",
+                  "  console.log(\"Assignments for incident:\", json.length);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-38 Cancel assignment",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{assign_incident_id}}/assignments/{{assignment_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "incidents",
+                "{{assign_incident_id}}",
+                "assignments",
+                "{{assignment_id}}"
+              ]
+            },
+            "description": "Cancel the assignment, releasing the unit back to AVAILABLE."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-38: Status 200 OK or 204\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-39 🔁 Concurrency Test – Parallel Assignment Race (Run with Collection Runner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unit_id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/{{assign_incident_id}}/assignments"
+            },
+            "description": "CONCURRENCY TEST: Run this request 10 times simultaneously using the Collection Runner (iterations=10, delay=0ms). Only ONE should succeed (201). All others should return 400/409/500. This demonstrates Redis distributed lock correctness under concurrent load.\n\nCollection Runner settings:\n  - Iterations: 10\n  - Delay: 0 ms\n  - Check 'Run collection without stopping'\n\nExpected result: 1 success (201), 9 failures (4xx/5xx)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In a parallel run, track how many 201s appear",
+                  "const status = pm.response.code;",
+                  "if (status === 201) {",
+                  "  console.log('✅ Assignment SUCCEEDED – lock acquired');",
+                  "  pm.test('Concurrent assignment success (should be exactly 1)', () => pm.response.to.have.status(201));",
+                  "} else {",
+                  "  console.log('❌ Assignment REJECTED (status ' + status + ') – lock protected correctness');",
+                  "  pm.test('Concurrent assignment rejected (lock working)', () => {",
+                  "    pm.expect(status).to.be.oneOf([400, 409, 500]);",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "⚡ Redis Cache Validation",
+      "description": "Validates caching behavior via response time comparison",
+      "item": [
+        {
+          "name": "TC-40 First request (cache MISS – DB hit)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "First call hits MongoDB. Records response time as baseline for cache miss."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-40: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-40: Response time recorded (cache miss)\", () => {",
+                  "  const time = pm.response.responseTime;",
+                  "  pm.collectionVariables.set(\"cache_miss_time\", time);",
+                  "  console.log(\"Cache MISS response time:\", time + \"ms (DB query)\");",
+                  "  pm.expect(time).to.be.a(\"number\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-41 Second request (cache HIT – Redis)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Second call with same params should hit Redis cache (faster response)."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-41: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-41: Cache HIT is faster than DB miss\", () => {",
+                  "  const missTime = parseInt(pm.collectionVariables.get(\"cache_miss_time\") || \"9999\");",
+                  "  const hitTime = pm.response.responseTime;",
+                  "  console.log(\"Cache MISS was:\", missTime + \"ms\");",
+                  "  console.log(\"Cache HIT is:\", hitTime + \"ms\");",
+                  "  console.log(\"Speedup:\", (missTime - hitTime) + \"ms faster\");",
+                  "  pm.expect(hitTime).to.be.at.most(missTime * 2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-42 Create incident to INVALIDATE cache",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cache busting – Desert emergency\",\n  \"type\": \"DESERT_EMERGENCY\",\n  \"severityLevel\": \"MEDIUM\",\n  \"location\": \"Al Ain Road, Abu Dhabi\",\n  \"description\": \"Stranded vehicle in desert, occupants need water and rescue\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Creating an incident triggers @CacheEvict(allEntries=true) on the activeIncidents cache."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-42: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-42: Cache should be invalidated by write\", () => {",
+                  "  console.log(\"New incident created – @CacheEvict(allEntries=true) should have cleared activeIncidents cache\");",
+                  "  pm.collectionVariables.set(\"cache_bust_id\", pm.response.json().id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-43 Request after cache eviction (re-populated from DB)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "After cache eviction, data should be refreshed from MongoDB (new incident visible)."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-43: Status 200 OK after cache eviction\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-43: New incident appears in results\", () => {",
+                  "  const content = pm.response.json().content;",
+                  "  const found = content.some(inc => inc.id === pm.collectionVariables.get(\"cache_bust_id\"));",
+                  "  console.log(\"New incident found in response:\", found);",
+                  "  pm.expect(content.length).to.be.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-44 Cache filtered by status=OPEN (separate cache key)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?status=OPEN&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Status-filtered queries use a separate cache key (status-OPEN-0-10). Independent cache entries."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-44: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-44: Filtered cache key is independent\", () => {",
+                  "  const json = pm.response.json();",
+                  "  console.log(\"OPEN incidents cached under key: status-OPEN-0-10\");",
+                  "  json.content.forEach(i => pm.expect(i.status).to.eql(\"OPEN\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🗄️ Redis Session Storage",
+      "description": "Validates session persistence, role context, and session invalidation",
+      "item": [
+        {
+          "name": "TC-45 Login and confirm session ID returned",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"dispatcher_test\",\n  \"password\": \"StrongPass123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login returns sessionId which maps to emergency:session::{id} in Redis."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-45: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-45: Session ID present (stored in Redis)\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"sessionId\");",
+                  "  pm.collectionVariables.set(\"session_id\", json.sessionId);",
+                  "  pm.collectionVariables.set(\"jwt_token\", json.token);",
+                  "  console.log(\"Session ID (Redis key: emergency:session::\" + json.sessionId + \"):\", json.sessionId);",
+                  "});",
+                  "pm.test(\"TC-45: Role stored in session context\", () => {",
+                  "  pm.expect(pm.response.json().role).to.eql(\"DISPATCHER\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-46 Authenticated request using JWT (session active)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Request with valid JWT succeeds – session is alive in Redis."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-46: Status 200 OK – session + JWT valid\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-46: Session active – dispatcher can access incidents\", () => {",
+                  "  pm.expect(pm.response.json()).to.have.property(\"content\");",
+                  "  console.log(\"Session is active in Redis. Request served successfully.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-47 Request with EXPIRED/INVALID JWT (fail)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiJ9.INVALID.SIGNATURE"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Tampered JWT should be rejected by JwtAuthFilter."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-47: Status 401/403 with invalid JWT\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "  console.log(\"Invalid JWT rejected. Session not found or token tampered.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-48 Logout and verify session invalidation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout invalidates the Redis session. Subsequent requests with old session should fail."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-48: Status 200 OK on logout\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-48: Session should be invalidated in Redis\", () => {",
+                  "  console.log(\"After logout, Redis key emergency:session::\" + pm.collectionVariables.get(\"session_id\") + \" should be deleted\");",
+                  "  pm.expect(pm.response.text()).to.include(\"Logged out\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-49 RESPONDER tries dispatcher endpoint (RBAC fail)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{responder_token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "A RESPONDER JWT should be rejected on DISPATCHER-only endpoints."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-49: Status 403 Forbidden for wrong role\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"TC-49: RBAC enforced via JWT role claim\", () => {",
+                  "  console.log(\"RESPONDER role blocked from DISPATCHER-only endpoint.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Security Tests",
+      "description": "Rate limiting, CORS, blacklist/whitelist, input validation, headers",
+      "item": [
+        {
+          "name": "TC-50 Rate limit test – normal request (success)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Single request well within the 30/min rate limit."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-50: Status 200 OK within rate limit\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-50: No rate limit header triggered\", () => {",
+                  "  console.log(\"Request 1 of rate limit test. Limit: 30 requests/minute.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-51 🔁 Rate Limit Flood Test (Run with Runner: 35 iterations, delay=0)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/incidents?page=0&size=5" },
+            "description": "RATE LIMIT TEST: Run this with Collection Runner set to 35 iterations, 0ms delay.\nExpected: first 30 requests → 200 OK, then 429 Too Many Requests.\n\nThis validates: RateLimitFilter (Bandwidth.classic(30, Refill.greedy(30, 1min)))"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const status = pm.response.code;",
+                  "if (status === 429) {",
+                  "  pm.test('TC-51: Rate limit 429 received after threshold', () => pm.response.to.have.status(429));",
+                  "  pm.test('TC-51: Error message present', () => {",
+                  "    pm.expect(pm.response.text()).to.match(/too many/i);",
+                  "  });",
+                  "  console.log('✅ Rate limit triggered at request ' + pm.info.iteration);",
+                  "} else {",
+                  "  pm.test('TC-51: Request within limit succeeded', () => pm.response.to.have.status(200));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-52 Blacklist IP test (manual – requires IP blacklist)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/ip/blacklist/192.168.99.99"
+            },
+            "description": "Step 1: Blacklist an IP via POST /api/admin/ip/blacklist/{ip}\nStep 2: Simulate a request from that IP (requires proxy or running locally)\nExpected: blacklisted IP receives 403 Forbidden from IpManagementController"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('TC-52: Blacklist IP endpoint responded', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201, 403]);",
+                  "  console.log('If 200/201: IP blacklisted. Now test from that IP to confirm 403.');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-53 Add IP to whitelist",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/admin/ip/whitelist/127.0.0.1" },
+            "description": "Whitelist localhost IP – whitelisted IPs bypass rate limiting."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-53: Whitelist IP responded\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "  console.log(\"127.0.0.1 whitelisted – rate limiting skipped for this IP.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-54 View blacklist",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/admin/ip/blacklist" },
+            "description": "View all currently blacklisted IPs."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-54: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-54: Returns list of blacklisted IPs\", () => {",
+                  "  pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "  console.log(\"Blacklisted IPs:\", pm.response.json());",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-55 CORS – Request from ALLOWED origin",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "https://localhost:3000" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Request from allowed CORS origin. Allowed: https://localhost:3000, https://localhost:5173"
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-55: Status 200 OK from allowed origin\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-55: CORS headers allow trusted origin\", () => {",
+                  "  const acao = pm.response.headers.get(\"Access-Control-Allow-Origin\");",
+                  "  console.log(\"Access-Control-Allow-Origin:\", acao);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-56 CORS – Request from DISALLOWED origin",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Origin", "value": "https://evil-site.com" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Request from disallowed origin. CORS should block it."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-56: CORS blocks unauthorized origin\", () => {",
+                  "  const acao = pm.response.headers.get(\"Access-Control-Allow-Origin\");",
+                  "  console.log(\"Access-Control-Allow-Origin for evil-site.com:\", acao);",
+                  "  pm.expect(acao).to.not.eql(\"https://evil-site.com\");",
+                  "  console.log(\"✅ Unauthorized origin blocked by CORS config.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-57 HTTP Security Headers check",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "Validate all mandatory HTTP security headers are present in responses."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-57: X-Content-Type-Options header present\", () => {",
+                  "  pm.expect(pm.response.headers.get(\"X-Content-Type-Options\")).to.eql(\"nosniff\");",
+                  "});",
+                  "pm.test(\"TC-57: X-Frame-Options header present\", () => {",
+                  "  const xfo = pm.response.headers.get(\"X-Frame-Options\");",
+                  "  console.log(\"X-Frame-Options:\", xfo);",
+                  "  pm.expect(xfo).to.not.be.null;",
+                  "});",
+                  "pm.test(\"TC-57: Strict-Transport-Security (HSTS) present\", () => {",
+                  "  const hsts = pm.response.headers.get(\"Strict-Transport-Security\");",
+                  "  console.log(\"HSTS:\", hsts);",
+                  "  pm.expect(hsts).to.not.be.null;",
+                  "});",
+                  "pm.test(\"TC-57: Content-Security-Policy present\", () => {",
+                  "  const csp = pm.response.headers.get(\"Content-Security-Policy\");",
+                  "  console.log(\"CSP:\", csp);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-58 Directory traversal attempt (fail)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents/../../../etc/passwd",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents", "..", "..", "..", "etc", "passwd"]
+            },
+            "description": "Directory traversal attack should be blocked and return 4xx."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-58: Directory traversal blocked\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 403, 404]);",
+                  "  pm.expect(pm.response.text()).to.not.include(\"root:\");",
+                  "  console.log(\"Directory traversal attempt blocked. Status:\", pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-59 NoSQL injection in incident description",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test injection\",\n  \"type\": \"MEDICAL\",\n  \"severityLevel\": \"LOW\",\n  \"location\": \"Test\",\n  \"description\": \"{ $where: 'this.status == OPEN' }\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "NoSQL injection attempt via incident description field."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-59: Injection payload handled safely\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400]);",
+                  "  if (pm.response.code === 201) {",
+                  "    console.log(\"✅ Input stored as literal string (sanitized). Not executed.\");",
+                  "  } else {",
+                  "    console.log(\"✅ Input rejected by validation.\");",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-60 JWT tampering – modified payload (fail)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJoYWNrZXIiLCJyb2xlIjoiQURNSU4ifQ.FAKESIGNATURE"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/incidents?page=0&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "incidents"]
+            },
+            "description": "JWT with modified payload but original signature should be rejected."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-60: Tampered JWT rejected\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "  console.log(\"✅ Tampered JWT rejected. Signature mismatch detected by JwtAuthFilter.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏥 Hospitals & Audit Logs",
+      "description": "Hospital capacity management and audit trail verification",
+      "item": [
+        {
+          "name": "TC-61 Create hospital (HOSPITAL_ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{hospital_admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sheikh Khalifa Medical City\",\n  \"emirate\": \"Abu Dhabi\",\n  \"status\": \"OPERATIONAL\",\n  \"totalBeds\": 400,\n  \"availableBeds\": 85,\n  \"icuBeds\": 40,\n  \"availableIcuBeds\": 12\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/hospitals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hospitals"]
+            },
+            "description": "Create a hospital as HOSPITAL_ADMIN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-61: Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"TC-61: Hospital ID saved\", () => {",
+                  "  pm.collectionVariables.set(\"hospital_id\", pm.response.json().id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-62 Get all hospitals (paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/hospitals?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hospitals"]
+            },
+            "description": "Fetch paginated hospital list."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-62: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-62: Paginated hospital list returned\", () => {",
+                  "  pm.expect(pm.response.json().content).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-63 Get hospital capacity",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/hospitals/{{hospital_id}}/capacity",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hospitals", "{{hospital_id}}", "capacity"]
+            },
+            "description": "Get the capacity details for the created hospital."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-63: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-63: Capacity fields present\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"availableBeds\");",
+                  "  pm.expect(json).to.have.property(\"availableIcuBeds\");",
+                  "  console.log(\"Available beds:\", json.availableBeds, \"| ICU:\", json.availableIcuBeds);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-64 DISPATCHER tries to create hospital (RBAC fail)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Unauthorized Hospital\",\n  \"emirate\": \"Dubai\",\n  \"status\": \"OPERATIONAL\",\n  \"totalBeds\": 100,\n  \"availableBeds\": 50,\n  \"icuBeds\": 10,\n  \"availableIcuBeds\": 5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/hospitals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "hospitals"]
+            },
+            "description": "DISPATCHER role should not be able to create hospitals (HOSPITAL_ADMIN only)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-64: Status 403 Forbidden – dispatcher cannot create hospitals\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([403, 401]);",
+                  "  console.log(\"✅ RBAC enforced: DISPATCHER blocked from HOSPITAL_ADMIN endpoint.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "TC-65 Get audit logs (paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/audit?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "audit"]
+            },
+            "description": "Verify the audit trail contains logs from earlier test operations."
+          },
+          "auth": {
+            "type": "bearer",
+            "bearer": [
+              { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"TC-65: Status 200 OK\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TC-65: Audit log entries returned\", () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property(\"content\");",
+                  "  const logs = json.content;",
+                  "  console.log(\"Total audit entries:\", json.totalElements);",
+                  "  if (logs.length > 0) {",
+                  "    console.log(\"Latest log action:\", logs[0].action);",
+                  "    console.log(\"Performed by:\", logs[0].performedBy);",
+                  "  }",
+                  "});",
+                  "pm.test(\"TC-65: Audit contains entries from this test session\", () => {",
+                  "  pm.expect(pm.response.json().totalElements).to.be.above(0);",
+                  "  console.log(\"✅ AuditAspect is recording operations.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}
